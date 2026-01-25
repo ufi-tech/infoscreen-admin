@@ -137,3 +137,23 @@ export async function allocateTunnelPorts(deviceId, payload = {}) {
   if (!res.ok) throw new Error('Failed to allocate tunnel ports');
   return res.json();
 }
+
+export async function fetchLogs(params = {}) {
+  const query = new URLSearchParams();
+  if (params.deviceId) query.set('device_id', params.deviceId);
+  if (params.legacyId) query.set('legacy_id', params.legacyId);
+  if (params.level) query.set('level', params.level);
+  if (params.category) query.set('category', params.category);
+  if (params.hours) query.set('hours', params.hours);
+  if (params.limit) query.set('limit', params.limit);
+
+  const res = await fetch(`${API_URL}/logs?${query.toString()}`);
+  if (!res.ok) throw new Error('Failed to fetch logs');
+  return res.json();
+}
+
+export async function fetchDeviceLogs(deviceId, limit = 50) {
+  const res = await fetch(`${API_URL}/logs/device/${deviceId}?limit=${limit}`);
+  if (!res.ok) throw new Error('Failed to fetch device logs');
+  return res.json();
+}

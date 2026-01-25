@@ -486,6 +486,80 @@ pre {
   color: var(--muted);
 }
 
+/* Device Logs */
+.device-logs,
+.global-logs {
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.logs-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.log-entry {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: #fffdf8;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  font-size: 12px;
+}
+
+.log-entry[data-level="error"] {
+  background: #fff5f5;
+  border-color: #f5d0d0;
+}
+
+.log-entry[data-level="warning"] {
+  background: #fffbf0;
+  border-color: #f5e6c0;
+}
+
+.log-entry[data-level="success"] {
+  background: #f5fff7;
+  border-color: #c8e6d0;
+}
+
+.log-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  color: white;
+  font-size: 10px;
+  font-weight: bold;
+  flex-shrink: 0;
+}
+
+.log-time {
+  color: var(--muted);
+  font-size: 11px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.log-device {
+  color: var(--accent-2);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 10px;
+  padding: 2px 6px;
+  background: #f0f8f7;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.log-message {
+  flex: 1;
+  color: var(--ink);
+}
+
 @media (max-width: 900px) {
   .hero {
     flex-direction: column;

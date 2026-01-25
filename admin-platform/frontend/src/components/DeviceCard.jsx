@@ -17,6 +17,7 @@ import DeviceActions from './DeviceActions.jsx';
 import TunnelConfig from './TunnelConfig.jsx';
 import LocationForm from './LocationForm.jsx';
 import CustomerAssignment from './CustomerAssignment.jsx';
+import { DeviceLogs } from './DeviceLogs.jsx';
 
 export default function DeviceCard({
   device,
@@ -203,6 +204,11 @@ export default function DeviceCard({
           )}
         </div>
       )}
+
+      <div className="section">
+        <h4>Aktivitetslog</h4>
+        <DeviceLogs deviceId={d.id} limit={5} />
+      </div>
 
       <button
         className="ghost"

@@ -85,3 +85,17 @@ class TunnelConfig(Base):
     nodered_port = Column(Integer, nullable=True)
     web_ssh_port = Column(Integer, nullable=True)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
+class DeviceLog(Base):
+    """Log of device activities and events"""
+    __tablename__ = "device_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    device_id = Column(String, index=True)
+    legacy_id = Column(Integer, index=True, nullable=True)
+    timestamp = Column(DateTime(timezone=True), server_default=func.now(), index=True)
+    level = Column(String, default="info")  # info, warning, error, success
+    category = Column(String, default="system")  # system, command, status, mqtt, user
+    message = Column(String, default="")
+    details = Column(Text, nullable=True)  # JSON for extra data

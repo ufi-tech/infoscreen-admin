@@ -10,6 +10,21 @@ from ..models import Device, Telemetry, Event
 from ..mqtt_bridge import bridge
 from .deps import require_token
 from .schemas import CommandRequest, ApproveRequest
+from .logs import add_log
+
+# Danish command names for logging
+COMMAND_NAMES = {
+    "reboot": "Genstart",
+    "restart-nodered": "Genstart Node-RED",
+    "restart-chromium": "Genstart Chromium",
+    "screenshot": "Screenshot",
+    "wifi-scan": "WiFi scan",
+    "get-info": "Hent info",
+    "log-tail": "Hent log",
+    "get-location": "Hent lokation",
+    "set-url": "Skift URL",
+    "ssh-tunnel": "SSH tunnel",
+}
 
 router = APIRouter(prefix="/devices", tags=["devices"])
 
@@ -62,6 +77,20 @@ def send_command(device_id: str, body: CommandRequest, request: Request):
     topic = f"devices/{device_id}/cmd/{body.action}"
     payload = body.payload or {}
     bridge.publish(topic, payload)
+
+    # Log the command
+    cmd_name = COMMAND_NAMES.get(body.action, body.action)
+    details = {"action": body.action}
+    if body.action == "set-url" and payload.get("url"):
+        details["url"] = payload["url"]
+    add_log(
+        device_id=device_id,
+        level="info",
+        category="command",
+        message=f"Kommando sendt: {cmd_name}",
+        details=details
+    )
+
     return {"ok": True, "topic": topic}
 
 
@@ -73,6 +102,15 @@ def approve_device(device_id: str, body: ApproveRequest, request: Request):
         return {"ok": True}
     topic = f"devices/pending/{device_id}/cmd/approve"
     bridge.publish(topic, {})
+
+    # Log approval
+    add_log(
+        device_id=device_id,
+        level="success",
+        category="status",
+        message="Enhed godkendt"
+    )
+
     return {"ok": True, "topic": topic}
 
 
