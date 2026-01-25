@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="da" class="uk-height-1-1">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>InfoScreen WiFi Opsætning</title>
+    <link rel="icon" href="img/favicon.ico">
+    <!-- CSS FILES -->
+    <link rel="stylesheet" type="text/css" href="css/uikit.css">
+    <style>
+        body { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); }
+        .success-box {
+            background: rgba(76, 175, 80, 0.2);
+            border: 2px solid #4CAF50;
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body class="uk-height-1-1">
+<div class="uk-flex uk-flex-center uk-flex-middle">
+    <div class="uk-position-bottom-center uk-position-small">
+        <span class="uk-text-small uk-text-muted">UFi-Tech InfoScreen</span>
+    </div>
+    <div class="uk-width-large uk-padding-small">
+        <div class="uk-width-1-1 uk-text-center">
+            <span class="" uk-icon="icon: check; ratio: 5" style="color: #4CAF50;"></span>
+            <p class="uk-text-large">Forbinder til WiFi...</p>
+        </div>
+
+        <div class="uk-margin">
+            <div class="uk-width-1-1 uk-text-center">
+                <p>
+                    Opretter forbindelse til <strong>{{ ssid }}</strong>...
+                </p>
+                <div class="success-box">
+                    <p style="margin: 0;">
+                        <strong>Du kan nu lukke denne side.</strong><br><br>
+                        Kig på TV-skærmen - InfoScreen starter automatisk<br>
+                        når WiFi-forbindelsen er etableret.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- JS FILES -->
+<script src="js/uikit"></script>
+<script src="js/uikit-icons"></script>
+</body>
+</html>

@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="da" class="uk-height-1-1">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>InfoScreen WiFi Opsætning</title>
+    <link rel="icon" href="img/favicon.ico">
+    <!-- CSS FILES -->
+    <link rel="stylesheet" type="text/css" href="css/uikit.css">
+    <script src="js/blink.js"></script>
+    <style>
+        body { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); }
+        .uk-button-primary { background-color: #4CAF50; }
+        .uk-button-primary:hover { background-color: #45a049; }
+    </style>
+</head>
+<body class="uk-height-1-1">
+<div class="uk-flex uk-flex-center uk-flex-middle">
+    <div class="uk-position-bottom-center uk-position-small">
+        <span class="uk-text-small uk-text-muted">UFi-Tech InfoScreen</span>
+    </div>
+    <div class="uk-width-large uk-padding-small">
+        <div class="uk-width-1-1 uk-text-center">
+            <span class="" uk-icon="icon: world; ratio: 5"></span>
+            <p class="uk-text-large">Vælg WiFi-netværk</p>
+        </div>
+
+        <div class="uk-margin">
+            <div class="uk-width-1-1">
+                {% for point in points %}
+                    {% if point.security == 'encrypted' %}
+                        <a href="confirm?ssid={{ point.ssid_encoded }}&encrypted={{ point.security }}">
+                            <button class="uk-button uk-button-primary uk-width-1-1 uk-margin-small-bottom" style="text-transform: none;"><span uk-icon="icon: lock"></span> {{ point.ssid }}</button>
+                        </a>
+                    {% else %}
+                        <a href="confirm?ssid={{ point.ssid_encoded }}&encrypted={{ point.security }}">
+                            <button class="uk-button uk-button-secondary uk-width-1-1 uk-margin-small-bottom" style="text-transform: none;"><span uk-icon="icon: unlock"></span> {{ point.ssid }}</button>
+                        </a>
+                    {% endif %}
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+</body>
+</html>
