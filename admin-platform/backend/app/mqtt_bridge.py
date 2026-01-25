@@ -7,7 +7,7 @@ from typing import Optional
 import paho.mqtt.client as mqtt
 
 from .db import SessionLocal
-from .models import Device, Telemetry, Event
+from .models import Device, Telemetry, Event, Location
 from .settings import (
     MQTT_BROKER_HOST,
     MQTT_BROKER_PORT,
@@ -44,6 +44,7 @@ class MQTTBridge:
         client.subscribe("devices/+/events")
         client.subscribe("devices/+/wifi-scan")
         client.subscribe("devices/+/screenshot")
+        client.subscribe("devices/+/geolocation")
 
     def _on_message(self, client, userdata, msg) -> None:
         topic = msg.topic
@@ -98,6 +99,34 @@ class MQTTBridge:
 
             if topic.endswith("/screenshot"):
                 event = Event(device_id=device_id, ts=payload.get("ts", now_ms), type="screenshot", payload=json.dumps(payload))
+                session.add(event)
+                session.commit()
+                return
+
+            if topic.endswith("/geolocation"):
+                # Store geolocation in Location table
+                lat = payload.get("lat")
+                lon = payload.get("lon")
+                if lat is not None and lon is not None:
+                    from sqlalchemy import select
+                    existing = session.execute(
+                        select(Location).where(Location.device_id == device_id)
+                    ).scalars().first()
+                    if not existing:
+                        existing = Location(device_id=device_id)
+                    existing.lat = float(lat)
+                    existing.lon = float(lon)
+                    # Auto-fill address from geolocation data
+                    city = payload.get("city", "")
+                    region = payload.get("region", "")
+                    country = payload.get("country", "")
+                    if city or region or country:
+                        addr_parts = [p for p in [city, region, country] if p]
+                        existing.address = ", ".join(addr_parts)
+                    session.add(existing)
+                    session.commit()
+                # Also store as event for history
+                event = Event(device_id=device_id, ts=payload.get("ts", now_ms), type="geolocation", payload=json.dumps(payload))
                 session.add(event)
                 session.commit()
                 return

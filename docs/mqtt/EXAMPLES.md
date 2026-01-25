@@ -63,7 +63,7 @@ mosquitto_pub -h 192.168.40.94 -u admin -P '<ADMIN_PASS>' -t 'devices/<ID>/cmd/s
 Start:
 
 ```
-mosquitto_pub -h 192.168.40.94 -u admin -P '<ADMIN_PASS>' -t 'devices/<ID>/cmd/ssh-tunnel' -m '{"action":"start","name":"admin","host":"your.host","user":"tunnel","remote_port":2222,"local_port":22,"key":"/home/pi/.ssh/id_rsa"}'
+mosquitto_pub -h 192.168.40.94 -u admin -P '<ADMIN_PASS>' -t 'devices/<ID>/cmd/ssh-tunnel' -m '{"action":"start","name":"admin","host":"your.host","user":"tunnel","remote_port":2222,"local_port":22,"key":"/home/pi/.ssh/id_rsa","port":2222}'
 ```
 
 Stop:
@@ -74,16 +74,16 @@ mosquitto_pub -h 192.168.40.94 -u admin -P '<ADMIN_PASS>' -t 'devices/<ID>/cmd/s
 
 ## Screenshot
 
-File on device (returns file path):
-
-```
-mosquitto_pub -h 192.168.40.94 -u admin -P '<ADMIN_PASS>' -t 'devices/<ID>/cmd/screenshot' -m '{"mode":"file"}'
-```
-
-Base64 payload (bigger message):
+Base64 payload (recommended for remote admin; no local file needed):
 
 ```
 mosquitto_pub -h 192.168.40.94 -u admin -P '<ADMIN_PASS>' -t 'devices/<ID>/cmd/screenshot' -m '{"mode":"base64"}'
+```
+
+File on device (legacy, avoid if you want no local files):
+
+```
+mosquitto_pub -h 192.168.40.94 -u admin -P '<ADMIN_PASS>' -t 'devices/<ID>/cmd/screenshot' -m '{"mode":"file"}'
 ```
 
 Subscribe:

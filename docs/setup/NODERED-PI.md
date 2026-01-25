@@ -58,6 +58,11 @@ Node-RED execs:
 /home/pi/mqtt-screenshot.sh base64
 ```
 
+Recommended for remote admin:
+
+- Use `base64` mode so screenshots are sent over MQTT and not stored locally.
+- The script writes to `/tmp` and removes the file after encoding.
+
 Publishes to:
 
 ```
@@ -72,6 +77,10 @@ Node-RED execs:
 /home/pi/ssh-tunnel.sh start <name> <host> <user> <remote_port> [local_port] [key]
 /home/pi/ssh-tunnel.sh stop <name>
 ```
+
+Notes:
+- Default SSH port is 2222. Override with `host:port` or by passing the port as the last argument.
+- Reverse tunnels bind `0.0.0.0` on the tunnel host so remote access works.
 
 Publishes result to:
 

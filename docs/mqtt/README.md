@@ -41,6 +41,8 @@ WiFi scan results:
 Screenshot results:
 - devices/<id>/screenshot
 
+Recommended: use `{"mode":"base64"}` for remote viewing without local files.
+
 Commands (incoming):
 - devices/<id>/cmd/set-url
 - devices/<id>/cmd/reboot

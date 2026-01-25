@@ -32,6 +32,7 @@ Out-of-scope (for now):
 - Node-RED on Pi publishes status and telemetry and accepts commands.
 - Screenshot and WiFi scan actions are supported via MQTT.
 - SSH tunnel script exists on Pi.
+- Legacy database control exists via MySQL (infoscreen table).
 
 ## Architecture
 
@@ -39,6 +40,7 @@ Out-of-scope (for now):
 - Device agent: Node-RED + small helper scripts.
 - Backend: FastAPI + Postgres (or SQLite for MVP).
 - UI: React + Vite.
+- Legacy control: MySQL `Ufi-Tech` database (read/write selected fields).
 
 ## Topic Model (baseline)
 
@@ -130,6 +132,45 @@ Deliverables:
 
 Deliverables:
 - Stable operations for multiple devices.
+
+### Phase 6 - Legacy DB Integration
+
+Goal: manage existing "old system" devices in a dedicated admin tab without
+mixing MQTT-native devices.
+
+Findings (current legacy model):
+- Database: `Ufi-Tech` on `sql.ufi-tech.dk:42351`.
+- Table: `infoscreen` (primary key `ID`, device key `MAC` with prefix `ufi_tech-`).
+- Fields used by Node-RED flow: `Url`, `Support`, `Online`, `IP`, `wan`, `Kirke`, `camera`.
+- Support control values in flow:
+  - `Support = 1` triggers VNC reverse connect.
+  - `Support = 2` triggers reboot.
+  - Flow resets `Support = 0`.
+- Other useful fields: `CompanyName`, `description`, `ZipCode`, `TVON`,
+  `hdmistart`, `hdmistop`, `DelayDmi`, `width`, `height`, `mail`, `sms`.
+
+Plan:
+1. Backend adds MySQL connector (read-only first).
+2. Add legacy endpoints:
+   - `GET /legacy/devices` (lists `infoscreen` rows).
+   - `GET /legacy/devices/{id}` (detail by `ID` or `MAC`).
+   - `POST /legacy/devices/{id}/update` (whitelisted fields only).
+3. Admin UI adds a "Legacy" tab:
+   - List old devices, show URL, online, IP/wan, company, description.
+   - Edit URL, Support action (reboot/support), TV on/off, HDMI schedule.
+4. Add mapping table to link legacy `MAC` -> new `device_id`
+   so we can show a single "device" view when available.
+5. Add admin-owned tables for customers and locations:
+   - `admin_customers`, `admin_locations`, `admin_device_links`.
+   - Locations store `lat`, `lon` for map view.
+6. Add auto-registration flow:
+   - MQTT devices appear as pending, admin assigns customer/location.
+   - Legacy devices can be linked by MAC and migrated gradually.
+
+Deliverables:
+- Legacy tab in UI for existing DB-controlled devices.
+- Safe updates to legacy fields from admin.
+- Customer/location model with device assignments and position data.
 
 ## Device Actions (MQTT Commands)
 

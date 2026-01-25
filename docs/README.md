@@ -11,6 +11,7 @@ new guides, operational runbooks, and architecture notes here.
 - docs/setup/BROKER-MAC.md: Mosquitto broker on Mac (Docker)
 - docs/setup/ADMIN-PLATFORM.md: FastAPI + React admin platform (Docker)
 - docs/setup/NODERED-PI.md: Node-RED MQTT flows and scripts on the Pi
+- docs/setup/SYNOLOGY-SSH-TUNNEL.md: Synology SSH tunnel host (Docker)
 
 ## Conventions
 

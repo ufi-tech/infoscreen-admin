@@ -1,0 +1,119 @@
+"""Device endpoints - MQTT devices, commands, telemetry, events."""
+
+import json
+
+from fastapi import APIRouter, HTTPException, Request
+from sqlalchemy import select, desc
+
+from ..db import SessionLocal
+from ..models import Device, Telemetry, Event
+from ..mqtt_bridge import bridge
+from .deps import require_token
+from .schemas import CommandRequest, ApproveRequest
+
+router = APIRouter(prefix="/devices", tags=["devices"])
+
+
+@router.get("")
+def list_devices(request: Request):
+    """List all MQTT devices."""
+    require_token(request)
+    with SessionLocal() as session:
+        rows = session.execute(select(Device)).scalars().all()
+        return [
+            {
+                "id": d.id,
+                "name": d.name,
+                "status": d.status,
+                "approved": d.approved,
+                "last_seen": d.last_seen,
+                "ip": d.ip,
+                "url": d.url,
+                "mac": d.mac,
+            }
+            for d in rows
+        ]
+
+
+@router.get("/{device_id}")
+def get_device(device_id: str, request: Request):
+    """Get a single device by ID."""
+    require_token(request)
+    with SessionLocal() as session:
+        d = session.get(Device, device_id)
+        if not d:
+            raise HTTPException(status_code=404, detail="Device not found")
+        return {
+            "id": d.id,
+            "name": d.name,
+            "status": d.status,
+            "approved": d.approved,
+            "last_seen": d.last_seen,
+            "ip": d.ip,
+            "url": d.url,
+            "mac": d.mac,
+        }
+
+
+@router.post("/{device_id}/command")
+def send_command(device_id: str, body: CommandRequest, request: Request):
+    """Send a command to a device via MQTT."""
+    require_token(request)
+    topic = f"devices/{device_id}/cmd/{body.action}"
+    payload = body.payload or {}
+    bridge.publish(topic, payload)
+    return {"ok": True, "topic": topic}
+
+
+@router.post("/{device_id}/approve")
+def approve_device(device_id: str, body: ApproveRequest, request: Request):
+    """Approve a pending device."""
+    require_token(request)
+    if not body.approved:
+        return {"ok": True}
+    topic = f"devices/pending/{device_id}/cmd/approve"
+    bridge.publish(topic, {})
+    return {"ok": True, "topic": topic}
+
+
+@router.get("/{device_id}/telemetry")
+def get_telemetry(device_id: str, request: Request, limit: int = 50):
+    """Get telemetry history for a device."""
+    require_token(request)
+    with SessionLocal() as session:
+        rows = session.execute(
+            select(Telemetry)
+            .where(Telemetry.device_id == device_id)
+            .order_by(desc(Telemetry.id))
+            .limit(limit)
+        ).scalars().all()
+        return [
+            {
+                "id": r.id,
+                "ts": r.ts,
+                "payload": json.loads(r.payload) if r.payload else {},
+            }
+            for r in rows
+        ]
+
+
+@router.get("/{device_id}/events")
+def get_events(device_id: str, request: Request, limit: int = 100):
+    """Get events/logs for a device."""
+    require_token(request)
+    with SessionLocal() as session:
+        rows = session.execute(
+            select(Event)
+            .where(Event.device_id == device_id)
+            .order_by(desc(Event.id))
+            .limit(limit)
+        ).scalars().all()
+        return [
+            {
+                "id": r.id,
+                "ts": r.ts,
+                "type": r.type,
+                "payload": json.loads(r.payload) if r.payload else {},
+            }
+            for r in rows
+        ]

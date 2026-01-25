@@ -46,7 +46,7 @@ body {
   border: 1px solid var(--border);
   border-radius: 22px;
   box-shadow: var(--shadow);
-  margin-bottom: 24px;
+  margin-bottom: 20px;
 }
 
 .hero-actions {
@@ -80,6 +80,27 @@ h1 {
   color: var(--muted);
 }
 
+.tabs {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.tab {
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  padding: 8px 14px;
+  background: #fff;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.tab.active {
+  background: var(--accent-2);
+  color: #fff;
+  border: none;
+}
+
 .grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
@@ -97,6 +118,10 @@ h1 {
   gap: 12px;
   animation: floatIn 0.5s ease forwards;
   opacity: 0;
+}
+
+.legacy-card {
+  background: #fffaf3;
 }
 
 @keyframes floatIn {
@@ -236,6 +261,93 @@ h1 {
   border-radius: 10px;
   border: 1px solid var(--border);
   background: #fff;
+}
+
+.schedule-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 8px;
+}
+
+.schedule-grid input {
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: #fff;
+}
+
+.location-grid,
+.ssh-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 8px;
+}
+
+.location-grid input,
+.ssh-grid input {
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: #fff;
+}
+
+.customer-panel {
+  margin-bottom: 18px;
+}
+
+.customer-create {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.customer-create input {
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: #fff;
+}
+
+.customer-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.customer-row select {
+  flex: 1;
+  min-width: 180px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: #fff;
+}
+
+.customer-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.customer-item {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: #fffdf8;
+  border: 1px solid var(--border);
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.legacy-notes {
+  display: grid;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--muted);
 }
 
 button {

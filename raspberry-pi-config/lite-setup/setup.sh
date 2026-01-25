@@ -35,7 +35,9 @@ apt install -y \
     libgl1-mesa-dri \
     unclutter \
     cec-utils \
-    x11vnc
+    x11vnc \
+    autossh \
+    shellinabox
 
 echo ""
 echo "[3/7] Installing Node-RED..."
@@ -186,8 +188,19 @@ AUTOLOGIN_EOF
 systemctl daemon-reload
 
 echo ""
-echo "[6/7] Enabling SSH and VNC..."
+echo "[6/7] Enabling SSH and configuring security..."
 raspi-config nonint do_ssh 0
+
+# Configure shellinabox to listen ONLY on localhost (127.0.0.1)
+# This prevents access from LAN - only accessible via SSH tunnel
+cat > /etc/default/shellinabox << 'SHELLINABOX_EOF'
+# Shellinabox config - SECURITY: Only allow access via SSH tunnel
+SHELLINABOX_DAEMON_START=1
+SHELLINABOX_PORT=4200
+SHELLINABOX_ARGS="--localhost-only --disable-ssl"
+SHELLINABOX_EOF
+
+systemctl disable --now shellinabox >/dev/null 2>&1 || true
 
 echo ""
 echo "[7/7] Final configuration..."
@@ -206,7 +219,8 @@ echo "1. Copy your flows.json to $HOME_DIR/.node-red/flows.json"
 echo "2. Reboot the Pi: sudo reboot"
 echo "3. The kiosk should start automatically"
 echo ""
-echo "Access Node-RED at: http://<pi-ip>:1880"
+echo "SECURITY: Node-RED and Web SSH are only accessible via SSH tunnel"
+echo "          They are NOT accessible from LAN (bound to localhost only)"
 echo ""
 
 # Ask if user wants to reboot

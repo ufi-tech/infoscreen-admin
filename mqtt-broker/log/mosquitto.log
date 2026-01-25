@@ -234,3 +234,74 @@
 1769352707: New connection from 172.26.0.1:65168 on port 1883.
 1769352707: New client connected from 172.26.0.1:65168 as admin-platform (p2, c1, k60, u'admin').
 1769353224: Saving in-memory database to /mosquitto/data//mosquitto.db.
+1769355025: Saving in-memory database to /mosquitto/data//mosquitto.db.
+1769355433: New connection from 172.26.0.1:60064 on port 1883.
+1769355433: Client kiosk-nodered already connected, closing old connection.
+1769355433: New client connected from 172.26.0.1:60064 as kiosk-nodered (p1, c1, k60, u'04d1c535-1b70-4a19-b31f-7cda18dcc8c6').
+1769355433: Client kiosk-nodered disconnected.
+1769355438: New connection from 172.26.0.1:60074 on port 1883.
+1769355438: New client connected from 172.26.0.1:60074 as kiosk-nodered (p1, c1, k60, u'04d1c535-1b70-4a19-b31f-7cda18dcc8c6').
+1769355907: Client admin-platform closed its connection.
+1769355908: New connection from 172.26.0.1:58618 on port 1883.
+1769355908: New client connected from 172.26.0.1:58618 as admin-platform (p2, c1, k60, u'admin').
+1769356576: Client admin-platform closed its connection.
+1769356580: mosquitto version 2.0.22 terminating
+1769356580: Saving in-memory database to /mosquitto/data//mosquitto.db.
+1769356625: mosquitto version 2.0.22 starting
+1769356625: Config loaded from /mosquitto/config/mosquitto.conf.
+1769356625: Opening ipv4 listen socket on port 1883.
+1769356625: Opening ipv6 listen socket on port 1883.
+1769356625: Opening websockets listen socket on port 9001.
+1769356625: mosquitto version 2.0.22 running
+1769356629: New connection from 172.26.0.1:55842 on port 1883.
+1769356629: New client connected from 172.26.0.1:55842 as admin-platform (p2, c1, k60, u'admin').
+1769356640: New connection from 172.26.0.1:55648 on port 1883.
+1769356640: New client connected from 172.26.0.1:55648 as kiosk-nodered (p1, c1, k60, u'04d1c535-1b70-4a19-b31f-7cda18dcc8c6').
+1769356832: Client kiosk-nodered disconnected.
+1769356865: New connection from 172.26.0.1:58492 on port 1883.
+1769356865: New client connected from 172.26.0.1:58492 as kiosk-nodered (p1, c1, k60, u'04d1c535-1b70-4a19-b31f-7cda18dcc8c6').
+1769356865: Client kiosk-nodered disconnected.
+1769356874: New connection from 172.26.0.1:62712 on port 1883.
+1769356874: New client connected from 172.26.0.1:62712 as kiosk-nodered (p1, c1, k60, u'04d1c535-1b70-4a19-b31f-7cda18dcc8c6').
+1769357097: Client admin-platform closed its connection.
+1769357099: New connection from 172.26.0.1:59886 on port 1883.
+1769357099: New client connected from 172.26.0.1:59886 as admin-platform (p2, c1, k60, u'admin').
+1769357211: Client admin-platform closed its connection.
+1769357212: New connection from 172.26.0.1:57502 on port 1883.
+1769357212: New client connected from 172.26.0.1:57502 as admin-platform (p2, c1, k60, u'admin').
+1769358426: Saving in-memory database to /mosquitto/data//mosquitto.db.
+1769358885: Client admin-platform closed its connection.
+1769358888: New connection from 172.26.0.1:59862 on port 1883.
+1769358888: New client connected from 172.26.0.1:59862 as admin-platform (p2, c1, k60, u'admin').
+1769360227: Saving in-memory database to /mosquitto/data//mosquitto.db.
+1769362028: Saving in-memory database to /mosquitto/data//mosquitto.db.
+1769363829: Saving in-memory database to /mosquitto/data//mosquitto.db.
+1769365630: Saving in-memory database to /mosquitto/data//mosquitto.db.
+1769366986: Client kiosk-nodered disconnected.
+1769366990: New connection from 172.26.0.1:64164 on port 1883.
+1769366990: New client connected from 172.26.0.1:64164 as kiosk-nodered (p1, c1, k60, u'04d1c535-1b70-4a19-b31f-7cda18dcc8c6').
+1769367183: Client admin-platform closed its connection.
+1769367184: New connection from 172.26.0.1:62790 on port 1883.
+1769367184: New client connected from 172.26.0.1:62790 as admin-platform (p2, c1, k60, u'admin').
+1769367431: Saving in-memory database to /mosquitto/data//mosquitto.db.
+1769367849: Client admin-platform closed its connection.
+1769367851: New connection from 172.26.0.1:61048 on port 1883.
+1769367851: New client connected from 172.26.0.1:61048 as admin-platform (p2, c1, k60, u'admin').
+1769368074: Client admin-platform closed its connection.
+1769368075: New connection from 172.26.0.1:62296 on port 1883.
+1769368075: New client connected from 172.26.0.1:62296 as admin-platform (p2, c1, k60, u'admin').
+1769368457: Client admin-platform closed its connection.
+1769368458: New connection from 172.26.0.1:62190 on port 1883.
+1769368458: New client connected from 172.26.0.1:62190 as admin-platform (p2, c1, k60, u'admin').
+1769368506: Client admin-platform closed its connection.
+1769368507: New connection from 172.26.0.1:63140 on port 1883.
+1769368507: New client connected from 172.26.0.1:63140 as admin-platform (p2, c1, k60, u'admin').
+1769368682: Client admin-platform closed its connection.
+1769368683: New connection from 172.26.0.1:56636 on port 1883.
+1769368683: New client connected from 172.26.0.1:56636 as admin-platform (p2, c1, k60, u'admin').
+1769369232: Saving in-memory database to /mosquitto/data//mosquitto.db.
+1769369286: Client kiosk-nodered disconnected.
+1769369302: Client admin-platform closed its connection.
+1769371033: Saving in-memory database to /mosquitto/data//mosquitto.db.
+1769372834: Saving in-memory database to /mosquitto/data//mosquitto.db.
+1769374635: Saving in-memory database to /mosquitto/data//mosquitto.db.
