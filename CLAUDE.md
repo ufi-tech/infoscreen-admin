@@ -1,4 +1,4 @@
-# Skamstrup Fleet Desk - Claude Context
+# Infoscreen Admin - Claude Context
 
 ## Projekt Oversigt
 

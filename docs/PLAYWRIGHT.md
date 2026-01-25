@@ -1,4 +1,4 @@
-# Playwright Testing Guide for Skamstrup Fleet Desk
+# Playwright Testing Guide for Infoscreen Admin
 
 This guide enables Claude to interact with and test the admin platform UI using Playwright.
 

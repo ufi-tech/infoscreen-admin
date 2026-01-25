@@ -236,7 +236,7 @@ export default function App() {
       <div className="hero">
         <div>
           <p className="eyebrow">Operations Console</p>
-          <h1>Skamstrup Fleet Desk</h1>
+          <h1>Infoscreen Admin</h1>
           <p className="subtitle">
             Reboot, remote access, diagnostics, and live telemetry for every device.
           </p>
