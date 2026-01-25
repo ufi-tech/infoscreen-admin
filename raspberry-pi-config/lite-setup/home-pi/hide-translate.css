@@ -1,0 +1,23 @@
+/* Skjul Google Translate Widget */
+.goog-te-banner-frame,
+#google_translate_element,
+.skiptranslate,
+iframe.goog-te-banner-frame,
+.goog-te-gadget,
+.VIpgJd-ZVi9od-xl07Ob-lTBxed,
+body > .skiptranslate,
+#goog-gt-tt,
+.goog-te-balloon-frame {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    height: 0 !important;
+    width: 0 !important;
+    position: absolute !important;
+    top: -9999px !important;
+}
+
+/* Fjern top margin som Google Translate tilføjer */
+body {
+    top: 0px !important;
+}
