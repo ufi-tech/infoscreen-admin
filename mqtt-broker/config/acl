@@ -1,0 +1,6 @@
+user admin
+topic readwrite #
+
+user 04d1c535-1b70-4a19-b31f-7cda18dcc8c6
+topic readwrite devices/04d1c535-1b70-4a19-b31f-7cda18dcc8c6/#
+topic readwrite devices/pending/04d1c535-1b70-4a19-b31f-7cda18dcc8c6/#
