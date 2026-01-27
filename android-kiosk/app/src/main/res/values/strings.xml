@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Infoscreen Kiosk</string>
+
+    <!-- Setup Screen -->
+    <string name="setup_title">MQTT Konfiguration</string>
+    <string name="setup_broker_url">Broker URL</string>
+    <string name="setup_broker_url_hint">mqtt://192.168.1.100:1883</string>
+    <string name="setup_username">Brugernavn</string>
+    <string name="setup_password">Adgangskode</string>
+    <string name="setup_connect">Forbind</string>
+    <string name="setup_testing">Tester forbindelse...</string>
+    <string name="setup_error_empty">Alle felter skal udfyldes</string>
+    <string name="setup_error_connection">Kunne ikke forbinde til broker</string>
+
+    <!-- Pending Screen -->
+    <string name="pending_title">Afventer Godkendelse</string>
+    <string name="pending_message">Denne enhed afventer godkendelse fra administratoren.</string>
+    <string name="pending_device_id">Enheds-ID:</string>
+
+    <!-- Kiosk Screen -->
+    <string name="kiosk_offline_title">Ingen forbindelse</string>
+    <string name="kiosk_offline_message">Venter på netværksforbindelse...</string>
+    <string name="kiosk_loading">Indlæser...</string>
+
+    <!-- Notifications -->
+    <string name="notification_channel_name">Infoscreen Service</string>
+    <string name="notification_channel_description">Kører i baggrunden for at holde skærmen opdateret</string>
+    <string name="notification_title">Infoscreen Aktiv</string>
+    <string name="notification_text">Forbundet til MQTT broker</string>
+
+    <!-- Device Admin -->
+    <string name="device_admin_description">Tillad app at låse enheden i kiosk-tilstand</string>
+</resources>
