@@ -68,6 +68,7 @@ class MQTTBridge:
             return
         client.subscribe("devices/+/status")
         client.subscribe("devices/pending/+/status")
+        client.subscribe("devices/pending/+/telemetry")
         client.subscribe("devices/+/telemetry")
         client.subscribe("devices/+/events")
         client.subscribe("devices/+/wifi-scan")

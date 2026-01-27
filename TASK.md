@@ -23,6 +23,10 @@
 - [x] Configure SSH tunnel host on 192.168.40.152 (ports + forwarding).
 - [x] Validate reverse SSH access via tunnel.ufi-tech.dk.
 - [x] Persist tunnel settings + auto port allocation in admin.
+- [x] Remove hardcoded MQTT device IDs in Node-RED topics/clientid.
+- [x] Add first-boot device-id + hostname reset for cloned SD images.
+- [x] Harden ssh-tunnel command building (no injection, keep payload schema).
+- [x] Subscribe to pending telemetry in backend for onboarding visibility.
 
 ## In Progress
 

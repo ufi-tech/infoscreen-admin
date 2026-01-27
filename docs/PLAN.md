@@ -33,6 +33,8 @@ Out-of-scope (for now):
 - Screenshot and WiFi scan actions are supported via MQTT.
 - SSH tunnel script exists on Pi.
 - Legacy database control exists via MySQL (infoscreen table).
+- Device identity and approval exist, but MQTT broker config and command/approve
+  topics are hardcoded to a single device id (not clone-safe).
 
 ## Architecture
 
@@ -58,9 +60,11 @@ before it can receive commands.
 
 Baseline approach:
 - Device generates a UUID on first boot and stores it in /home/pi/device-id.
+- Device clears /home/pi/device-approved on first boot/clone to force approval.
+- Node-RED uses device-id for MQTT clientid, LWT topics, and cmd subscriptions.
 - Device connects with per-device MQTT credentials (not shared).
 - Backend keeps an allowlist of approved device IDs.
-- Unapproved devices can only publish to devices/pending/<id>/hello.
+- Unapproved devices publish status/telemetry to devices/pending/<id>/...
 - After approval, backend issues credentials and enables full topics.
   (Local approval flag stored in /home/pi/device-approved.)
 
@@ -76,7 +80,8 @@ Baseline approach:
 
 1. Add MQTT auth (user/pass) and ACLs.
 2. Update Node-RED broker config to use auth.
-3. Add device identity (/etc/device-id) and approval workflow.
+3. Replace hardcoded MQTT clientid/birth/will/cmd/approve topics with device-id.
+4. Add first-boot device-id generation + hostname update + approval reset.
 4. Add device heartbeat watchdog (in backend and UI).
 5. Decide retention policies for telemetry and screenshots.
 
@@ -120,6 +125,7 @@ Deliverables:
    - POST /devices/<id>/tunnel
 2. Backend publishes MQTT command and waits for event ack.
 3. UI shows tunnel status and target port.
+4. Keep reverse SSH payload schema stable; add validation to avoid command injection.
 
 Deliverables:
 - On-demand SSH access without VNC.
@@ -197,6 +203,7 @@ Deliverables:
 - Admin API protected by login.
 - SSH tunnels use per-device keys.
 - Device approval list required before commands.
+- Web SSH (shellinabox) only exposed via reverse tunnel (localhost on device).
 
 ## Data Model (backend)
 
@@ -217,7 +224,11 @@ Deliverables:
 
 ## Next Steps
 
-1. Decide MQTT auth and broker location.
+1. Make Node-RED MQTT topics and clientid device-specific (clone-safe).
+2. Add first-boot device-id/hostname reset for cloned SD images.
+3. Update approval flow to wildcard subscribe + pending telemetry support.
+4. Harden ssh-tunnel command building without breaking reverse proxy.
+5. Decide MQTT auth and broker location.
 2. Implement device identity and approval workflow.
 3. Build FastAPI MVP with MQTT bridge.
 4. Build React UI skeleton.

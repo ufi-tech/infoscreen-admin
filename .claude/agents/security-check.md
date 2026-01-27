@@ -1,0 +1,1 @@
+/Users/uffeiversen/ops-center/skills/agents/security-check.md

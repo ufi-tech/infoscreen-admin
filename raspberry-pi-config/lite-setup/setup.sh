@@ -20,12 +20,12 @@ ACTUAL_USER=${SUDO_USER:-pi}
 HOME_DIR="/home/$ACTUAL_USER"
 
 echo ""
-echo "[1/7] Updating system..."
+echo "[1/8] Updating system..."
 apt update && apt full-upgrade -y
 apt autoremove -y
 
 echo ""
-echo "[2/7] Installing X Server and Chromium..."
+echo "[2/8] Installing X Server and Chromium..."
 apt install -y \
     xserver-xorg \
     x11-xserver-utils \
@@ -40,7 +40,7 @@ apt install -y \
     shellinabox
 
 echo ""
-echo "[3/7] Installing Node-RED..."
+echo "[3/8] Installing Node-RED..."
 # Run Node-RED installer as the actual user
 sudo -u $ACTUAL_USER bash <(curl -sL https://raw.githubusercontent.com/node-red/linux-installers/master/deb/update-nodejs-and-nodered) --confirm-install --confirm-pi
 
@@ -49,7 +49,7 @@ systemctl enable nodered
 systemctl start nodered
 
 echo ""
-echo "[4/7] Installing kiosk scripts..."
+echo "[4/8] Installing kiosk scripts..."
 
 # Copy kiosk.sh
 cat > "$HOME_DIR/kiosk.sh" << 'KIOSK_EOF'
@@ -177,7 +177,7 @@ CSS_EOF
 chown $ACTUAL_USER:$ACTUAL_USER "$HOME_DIR/hide-translate.css"
 
 echo ""
-echo "[5/7] Configuring auto-login..."
+echo "[5/8] Configuring auto-login..."
 mkdir -p /etc/systemd/system/getty@tty1.service.d/
 cat > /etc/systemd/system/getty@tty1.service.d/autologin.conf << 'AUTOLOGIN_EOF'
 [Service]
@@ -188,7 +188,7 @@ AUTOLOGIN_EOF
 systemctl daemon-reload
 
 echo ""
-echo "[6/7] Enabling SSH and configuring security..."
+echo "[6/8] Enabling SSH and configuring security..."
 raspi-config nonint do_ssh 0
 
 # Configure shellinabox to listen ONLY on localhost (127.0.0.1)
@@ -203,7 +203,159 @@ SHELLINABOX_EOF
 systemctl disable --now shellinabox >/dev/null 2>&1 || true
 
 echo ""
-echo "[7/7] Final configuration..."
+echo "[7/8] Installing device identity service..."
+
+cat > /usr/local/bin/device-identity.sh << IDENTITY_EOF
+#!/bin/bash
+set -euo pipefail
+
+HOME_DIR="$HOME_DIR"
+DEVICE_ID_PATH="${HOME_DIR}/device-id"
+APPROVED_PATH="${HOME_DIR}/device-approved"
+MAC_PATH="${HOME_DIR}/device-mac"
+SERIAL_PATH="${HOME_DIR}/device-serial"
+MACHINE_ID_PATH="${HOME_DIR}/device-machine-id"
+
+get_mac() {
+    for iface in /sys/class/net/*; do
+        iface_name=$(basename "$iface")
+        [ "$iface_name" = "lo" ] && continue
+        addr=$(cat "$iface/address" 2>/dev/null || true)
+        if [ -n "$addr" ]; then
+            echo "$addr" | tr -d ':' | tr '[:upper:]' '[:lower:]'
+            return 0
+        fi
+    done
+    return 1
+}
+
+get_serial() {
+    if [ -r /proc/device-tree/serial-number ]; then
+        tr -d '\0' < /proc/device-tree/serial-number
+        return 0
+    fi
+    if [ -r /proc/cpuinfo ]; then
+        awk -F': ' '/Serial/ {print $2; exit}' /proc/cpuinfo
+        return 0
+    fi
+    return 1
+}
+
+get_machine_id() {
+    cat /etc/machine-id 2>/dev/null || true
+}
+
+current_mac=$(get_mac || true)
+current_serial=$(get_serial || true)
+current_mid=$(get_machine_id || true)
+
+if [ -z "$current_mac" ] && [ -z "$current_serial" ]; then
+    exit 0
+fi
+
+stored_mac=""
+stored_serial=""
+stored_mid=""
+if [ -f "$MAC_PATH" ]; then
+    stored_mac=$(cat "$MAC_PATH" 2>/dev/null || true)
+fi
+if [ -f "$SERIAL_PATH" ]; then
+    stored_serial=$(cat "$SERIAL_PATH" 2>/dev/null || true)
+fi
+if [ -f "$MACHINE_ID_PATH" ]; then
+    stored_mid=$(cat "$MACHINE_ID_PATH" 2>/dev/null || true)
+fi
+
+write_fingerprint() {
+    if [ -n "$current_mac" ]; then
+        echo "$current_mac" > "$MAC_PATH"
+    fi
+    if [ -n "$current_serial" ]; then
+        echo "$current_serial" > "$SERIAL_PATH"
+    fi
+    if [ -n "$current_mid" ]; then
+        echo "$current_mid" > "$MACHINE_ID_PATH"
+    fi
+}
+
+# Legacy install: keep existing device-id, just store fingerprint for next boot.
+if [ -f "$DEVICE_ID_PATH" ] && [ -z "$stored_mac" ] && [ -z "$stored_serial" ]; then
+    write_fingerprint
+    for p in "$MAC_PATH" "$SERIAL_PATH" "$MACHINE_ID_PATH"; do
+        [ -f "$p" ] && chown "$ACTUAL_USER:$ACTUAL_USER" "$p" 2>/dev/null || true
+    done
+    exit 0
+fi
+
+regen=0
+if [ ! -f "$DEVICE_ID_PATH" ]; then
+    regen=1
+fi
+if [ -n "$stored_mac" ] && [ -n "$current_mac" ] && [ "$stored_mac" != "$current_mac" ]; then
+    regen=1
+fi
+if [ -n "$stored_serial" ] && [ -n "$current_serial" ] && [ "$stored_serial" != "$current_serial" ]; then
+    regen=1
+fi
+
+if [ "$regen" -eq 1 ]; then
+    device_id=$(cat /proc/sys/kernel/random/uuid)
+    echo "$device_id" > "$DEVICE_ID_PATH"
+    rm -f "$APPROVED_PATH"
+
+    write_fingerprint
+
+    chown "$ACTUAL_USER:$ACTUAL_USER" "$DEVICE_ID_PATH" 2>/dev/null || true
+    for p in "$MAC_PATH" "$SERIAL_PATH" "$MACHINE_ID_PATH"; do
+        [ -f "$p" ] && chown "$ACTUAL_USER:$ACTUAL_USER" "$p" 2>/dev/null || true
+    done
+
+    short_id=$(echo "$device_id" | cut -d- -f1)
+    new_hostname="kiosk-$short_id"
+    hostnamectl set-hostname "$new_hostname" 2>/dev/null || echo "$new_hostname" > /etc/hostname
+    if grep -q '^127.0.1.1' /etc/hosts; then
+        sed -i "s/^127.0.1.1.*/127.0.1.1 $new_hostname/" /etc/hosts
+    else
+        echo "127.0.1.1 $new_hostname" >> /etc/hosts
+    fi
+else
+    if [ -n "$current_mac" ] && [ -z "$stored_mac" ]; then
+        echo "$current_mac" > "$MAC_PATH"
+    fi
+    if [ -n "$current_serial" ] && [ -z "$stored_serial" ]; then
+        echo "$current_serial" > "$SERIAL_PATH"
+    fi
+    if [ -n "$current_mid" ] && [ -z "$stored_mid" ]; then
+        echo "$current_mid" > "$MACHINE_ID_PATH"
+    fi
+    for p in "$MAC_PATH" "$SERIAL_PATH" "$MACHINE_ID_PATH"; do
+        [ -f "$p" ] && chown "$ACTUAL_USER:$ACTUAL_USER" "$p" 2>/dev/null || true
+    done
+fi
+IDENTITY_EOF
+
+chmod +x /usr/local/bin/device-identity.sh
+
+cat > /etc/systemd/system/device-identity.service << 'IDENTITY_SERVICE_EOF'
+[Unit]
+Description=Device identity initialization
+After=local-fs.target
+Before=nodered.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/device-identity.sh
+
+[Install]
+WantedBy=multi-user.target
+IDENTITY_SERVICE_EOF
+
+systemctl daemon-reload
+systemctl enable device-identity.service
+systemctl start device-identity.service
+
+echo ""
+echo "[8/8] Final configuration..."
 
 # Create Node-RED flows directory if not exists
 mkdir -p "$HOME_DIR/.node-red"
