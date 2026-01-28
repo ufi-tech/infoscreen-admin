@@ -7,7 +7,7 @@ from typing import Optional
 import paho.mqtt.client as mqtt
 
 from .db import SessionLocal
-from .models import Device, Telemetry, Event, Location, DeviceLog
+from .models import Device, Telemetry, Event, Location, DeviceLog, CustomerCode, Customer, Assignment
 from .settings import (
     MQTT_BROKER_HOST,
     MQTT_BROKER_PORT,
@@ -78,6 +78,10 @@ class MQTTBridge:
         # Fully Kiosk Browser topics
         client.subscribe("fully/deviceInfo/+")
         client.subscribe("fully/event/+/+")
+        client.subscribe("fully/cmd/+/+/ack")  # Command acknowledgments from relay
+        client.subscribe("fully/relay/status")  # Relay service status
+        # IOCast provisioning topics
+        client.subscribe("provision/+/request")
 
     def _on_message(self, client, userdata, msg) -> None:
         topic = msg.topic
@@ -92,6 +96,11 @@ class MQTTBridge:
         # Handle Fully Kiosk Browser topics
         if topic.startswith("fully/"):
             self._handle_fully_message(topic, payload, now_ms)
+            return
+
+        # Handle IOCast provisioning requests
+        if topic.startswith("provision/") and topic.endswith("/request"):
+            self._handle_provision_request(topic, payload, now_ms)
             return
 
         device_id = self._extract_device_id(topic)
@@ -274,6 +283,18 @@ class MQTTBridge:
             self._process_fully_event(device_id, event_type, payload, now_ms)
             return
 
+        # fully/cmd/{deviceId}/{command}/ack - Command acknowledgment from relay
+        if len(parts) >= 5 and parts[1] == "cmd" and parts[4] == "ack":
+            device_id = f"fully-{parts[2]}"
+            command = parts[3]
+            self._process_fully_command_ack(device_id, command, payload, now_ms)
+            return
+
+        # fully/relay/status - Relay service status
+        if len(parts) >= 3 and parts[1] == "relay" and parts[2] == "status":
+            self._process_relay_status(payload, now_ms)
+            return
+
     def _process_fully_device_info(self, device_id: str, payload: dict, now_ms: int) -> None:
         """Process Fully deviceInfo message - combines status + telemetry"""
         with SessionLocal() as session:
@@ -368,6 +389,140 @@ class MQTTBridge:
                     "Fully: Strøm tilsluttet")
 
             session.commit()
+
+    def _process_fully_command_ack(self, device_id: str, command: str, payload: dict, now_ms: int) -> None:
+        """Process command acknowledgment from relay service"""
+        result = payload.get("result", {})
+        status = result.get("status", "Unknown")
+        statustext = result.get("statustext", "")
+
+        with SessionLocal() as session:
+            # Log command result
+            level = "success" if status == "OK" else "error"
+            _add_device_log(session, device_id, level, "command",
+                f"Kommando resultat: {command} - {statustext}",
+                {"command": command, "status": status})
+
+            # Store as event
+            event = Event(
+                device_id=device_id,
+                ts=now_ms,
+                type=f"fully-cmd-{command}",
+                payload=json.dumps(payload)
+            )
+            session.add(event)
+            session.commit()
+
+    def _process_relay_status(self, payload: dict, now_ms: int) -> None:
+        """Process relay service status update"""
+        status = payload.get("status", "unknown")
+        # Could store relay status if needed for monitoring
+        pass
+
+    def _handle_provision_request(self, topic: str, payload: dict, now_ms: int) -> None:
+        """
+        Handle IOCast Android/TV device provisioning requests.
+        Topic: provision/{customer_code}/request
+        """
+        from sqlalchemy import select
+
+        # Extract customer code from topic: provision/{code}/request
+        parts = topic.split("/")
+        if len(parts) < 3:
+            return
+        customer_code = parts[1]
+        device_id = payload.get("deviceId", "")
+
+        if not device_id:
+            return
+
+        with SessionLocal() as session:
+            # Lookup customer code
+            code_record = session.execute(
+                select(CustomerCode).where(CustomerCode.code == customer_code)
+            ).scalars().first()
+
+            if not code_record:
+                # Unknown customer code - ignore silently
+                # (don't respond to avoid information disclosure)
+                return
+
+            # Get customer info
+            customer = session.get(Customer, code_record.customer_id)
+            customer_name = customer.name if customer else "Ukendt"
+
+            # Create or update device
+            device = session.get(Device, device_id)
+            was_new = device is None
+
+            if not device:
+                device = Device(id=device_id)
+
+            device.name = payload.get("deviceName", f"IOCast {device_id[-8:]}")
+            device.status = "online"
+            device.ip = payload.get("ip", device.ip)
+            device.mac = payload.get("mac", device.mac)
+            device.url = code_record.start_url
+            device.last_seen = datetime.utcnow()
+
+            # Set approved based on auto_approve setting
+            if code_record.auto_approve:
+                device.approved = True
+            # If not auto_approve, keep existing approval status (or False for new)
+
+            session.merge(device)
+
+            # Create/update assignment to link device to customer
+            existing_assignment = session.execute(
+                select(Assignment).where(Assignment.device_id == device_id)
+            ).scalars().first()
+
+            if not existing_assignment:
+                assignment = Assignment(
+                    customer_id=code_record.customer_id,
+                    device_id=device_id
+                )
+                session.add(assignment)
+            elif existing_assignment.customer_id != code_record.customer_id:
+                # Update if customer changed
+                existing_assignment.customer_id = code_record.customer_id
+
+            # Log the provisioning
+            log_msg = f"IOCast provisioning: {customer_name} (kode: {customer_code})"
+            if was_new:
+                _add_device_log(session, device_id, "success", "status",
+                    f"Ny enhed registreret via {log_msg}",
+                    {"ip": device.ip, "mac": device.mac, "model": payload.get("deviceName")})
+            else:
+                _add_device_log(session, device_id, "info", "status",
+                    f"Enhed gen-provisioneret via {log_msg}",
+                    {"ip": device.ip})
+
+            session.commit()
+
+            # Build response
+            response_topic = f"provision/{customer_code}/response/{device_id}"
+
+            if code_record.auto_approve or device.approved:
+                # Send approved config
+                response = {
+                    "approved": True,
+                    "startUrl": code_record.start_url,
+                    "kioskMode": code_record.kiosk_mode,
+                    "keepScreenOn": code_record.keep_screen_on,
+                    "customerId": str(code_record.customer_id),
+                    "customerName": customer_name
+                }
+            else:
+                # Waiting for manual approval
+                response = {
+                    "approved": False,
+                    "message": "Venter på godkendelse...",
+                    "customerName": customer_name
+                }
+
+            # Publish response (retained so device can reconnect and get it)
+            self._client.publish(response_topic, json.dumps(response), retain=True)
 
     @staticmethod
     def _extract_device_id(topic: str) -> Optional[str]:

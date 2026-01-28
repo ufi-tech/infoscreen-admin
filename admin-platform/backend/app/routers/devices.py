@@ -24,6 +24,15 @@ COMMAND_NAMES = {
     "get-location": "Hent lokation",
     "set-url": "Skift URL",
     "ssh-tunnel": "SSH tunnel",
+    # Fully Kiosk commands
+    "screenOn": "Tænd skærm",
+    "screenOff": "Sluk skærm",
+    "setBrightness": "Sæt lysstyrke",
+    "loadUrl": "Skift URL",
+    "loadStartUrl": "Gå til start-URL",
+    "startScreensaver": "Start pauseskærm",
+    "stopScreensaver": "Stop pauseskærm",
+    "restartApp": "Genstart app",
 }
 
 router = APIRouter(prefix="/devices", tags=["devices"])
@@ -72,17 +81,33 @@ def get_device(device_id: str, request: Request):
 
 @router.post("/{device_id}/command")
 def send_command(device_id: str, body: CommandRequest, request: Request):
-    """Send a command to a device via MQTT."""
+    """Send a command to a device via MQTT.
+
+    For Raspberry Pi devices: uses devices/{id}/cmd/{action}
+    For Fully Kiosk devices: uses fully/cmd/{id}/{action} (requires relay service)
+    """
     require_token(request)
-    topic = f"devices/{device_id}/cmd/{body.action}"
     payload = body.payload or {}
+
+    # Determine topic based on device type
+    if device_id.startswith("fully-"):
+        # Fully devices use different topic structure
+        # Strip "fully-" prefix for the actual device ID
+        fully_device_id = device_id[6:]
+        topic = f"fully/cmd/{fully_device_id}/{body.action}"
+    else:
+        # Standard Raspberry Pi devices
+        topic = f"devices/{device_id}/cmd/{body.action}"
+
     bridge.publish(topic, payload)
 
     # Log the command
     cmd_name = COMMAND_NAMES.get(body.action, body.action)
     details = {"action": body.action}
-    if body.action == "set-url" and payload.get("url"):
+    if body.action in ("set-url", "loadUrl") and payload.get("url"):
         details["url"] = payload["url"]
+    if body.action == "setBrightness" and payload.get("brightness"):
+        details["brightness"] = payload["brightness"]
     add_log(
         device_id=device_id,
         level="info",

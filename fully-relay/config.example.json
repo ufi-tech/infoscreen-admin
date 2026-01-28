@@ -1,0 +1,18 @@
+{
+  "mqtt": {
+    "broker": "188.228.60.134",
+    "port": 1883,
+    "username": "admin",
+    "password": "YOUR_MQTT_PASSWORD"
+  },
+  "devices": [
+    {
+      "id": "8c2c6a0f-2d65236b",
+      "ip": "192.168.40.154",
+      "password": "1227",
+      "port": 2323,
+      "name": "TPM191E"
+    }
+  ],
+  "default_password": "1227"
+}
