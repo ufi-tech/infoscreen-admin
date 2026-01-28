@@ -2,28 +2,33 @@
 """
 Fully Kiosk Browser Relay Service
 
-Bridges MQTT commands from admin platform to local Fully REST API.
-Run this on a Mac/PC that has LAN access to Fully devices.
+Auto-discovers Fully devices via MQTT and bridges commands to local REST API.
+No manual configuration needed - just provide MQTT credentials.
 
 Usage:
     python relay.py --broker 188.228.60.134 --user admin --password XXX
 
-MQTT Topics:
-    Subscribe: fully/cmd/{deviceId}/{command}
-    Publish:   fully/cmd/{deviceId}/{command}/ack
+The service will:
+1. Listen for fully/deviceInfo/+ messages to discover devices
+2. Auto-register devices with their IP and default password
+3. Execute commands from fully/cmd/{deviceId}/{command}
+4. Send acknowledgments back via MQTT
 """
 
 import argparse
 import json
 import logging
+import os
 import sys
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
+from pathlib import Path
 from typing import Optional
 
 import paho.mqtt.client as mqtt
 import requests
 
+# Setup logging
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
@@ -34,46 +39,105 @@ log = logging.getLogger("fully-relay")
 
 @dataclass
 class FullyDevice:
-    """Known Fully device with IP and password"""
+    """Known Fully device"""
     device_id: str
     ip: str
     password: str
     port: int = 2323
+    name: str = ""
+    last_seen: float = 0
+
+    def to_dict(self):
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, data: dict):
+        return cls(**{k: v for k, v in data.items() if k in cls.__dataclass_fields__})
 
 
 class DeviceRegistry:
-    """Registry of known Fully devices"""
+    """Auto-discovering registry of Fully devices"""
 
-    def __init__(self):
+    def __init__(self, config_path: Path, default_password: str = "1227"):
+        self.config_path = config_path
+        self.default_password = default_password
         self._devices: dict[str, FullyDevice] = {}
+        self._load()
 
-    def register(self, device_id: str, ip: str, password: str, port: int = 2323):
-        """Register a device"""
-        self._devices[device_id] = FullyDevice(device_id, ip, password, port)
-        log.info(f"Registered device: {device_id} -> {ip}:{port}")
+    def _load(self):
+        """Load saved devices from config"""
+        if self.config_path.exists():
+            try:
+                data = json.loads(self.config_path.read_text())
+                for d in data.get("devices", []):
+                    device = FullyDevice.from_dict(d)
+                    self._devices[device.device_id] = device
+                log.info(f"Loaded {len(self._devices)} devices from config")
+            except Exception as e:
+                log.warning(f"Could not load config: {e}")
+
+    def _save(self):
+        """Save devices to config"""
+        try:
+            self.config_path.parent.mkdir(parents=True, exist_ok=True)
+            data = {"devices": [d.to_dict() for d in self._devices.values()]}
+            self.config_path.write_text(json.dumps(data, indent=2))
+        except Exception as e:
+            log.warning(f"Could not save config: {e}")
+
+    def discover(self, device_id: str, ip: str, name: str = "", password: str = None) -> bool:
+        """
+        Auto-discover device from MQTT deviceInfo.
+        Returns True if this is a new device.
+        """
+        is_new = device_id not in self._devices
+
+        if is_new:
+            self._devices[device_id] = FullyDevice(
+                device_id=device_id,
+                ip=ip,
+                password=password or self.default_password,
+                name=name,
+                last_seen=time.time()
+            )
+            log.info(f"🆕 Discovered new device: {name or device_id} ({ip})")
+            self._save()
+        else:
+            # Update existing device
+            device = self._devices[device_id]
+            changed = device.ip != ip or device.name != name
+            device.ip = ip
+            device.name = name
+            device.last_seen = time.time()
+            if changed:
+                log.info(f"📡 Updated device: {name or device_id} ({ip})")
+                self._save()
+
+        return is_new
 
     def get(self, device_id: str) -> Optional[FullyDevice]:
-        """Get device by ID"""
-        # Try exact match first
+        """Get device by ID (with or without fully- prefix)"""
+        # Try exact match
         if device_id in self._devices:
             return self._devices[device_id]
-        # Try with fully- prefix stripped
+        # Try with prefix stripped
         if device_id.startswith("fully-"):
             short_id = device_id[6:]
             if short_id in self._devices:
                 return self._devices[short_id]
-        # Try adding fully- prefix
-        prefixed = f"fully-{device_id}"
-        if prefixed in self._devices:
-            return self._devices[prefixed]
         return None
 
-    def discover_from_mqtt(self, device_id: str, payload: dict):
-        """Auto-discover device from MQTT deviceInfo"""
-        ip = payload.get("ip4")
-        if ip and device_id not in self._devices:
-            # Use default password - can be overridden via config
-            self.register(device_id, ip, "1227")
+    def set_password(self, device_id: str, password: str):
+        """Update password for a device"""
+        device = self.get(device_id)
+        if device:
+            device.password = password
+            self._save()
+            log.info(f"🔑 Updated password for {device.name or device_id}")
+
+    def list_devices(self) -> list[FullyDevice]:
+        """List all known devices"""
+        return list(self._devices.values())
 
 
 class FullyRestClient:
@@ -141,75 +205,106 @@ class FullyRestClient:
             req_params["value"] = params["brightness"]
 
         try:
-            log.info(f"Executing {command} on {self.device.ip}")
+            log.info(f"⚡ {command} → {self.device.name or self.device.ip}")
             response = requests.get(self.base_url, params=req_params, timeout=10)
 
             # Handle screenshot (binary response)
             if command == "screenshot" and response.status_code == 200:
-                if response.headers.get("content-type", "").startswith("image/"):
+                content_type = response.headers.get("content-type", "")
+                if content_type.startswith("image/"):
                     return {
                         "status": "OK",
-                        "screenshot": response.content.hex()[:100] + "...",
-                        "size": len(response.content)
+                        "statustext": f"Screenshot captured ({len(response.content)} bytes)"
                     }
 
-            return response.json()
+            result = response.json()
+            status = result.get("status", "Unknown")
+            if status == "OK":
+                log.info(f"✅ {result.get('statustext', 'Success')}")
+            else:
+                log.warning(f"⚠️ {result.get('statustext', 'Failed')}")
+            return result
+
         except requests.Timeout:
+            log.error(f"⏱️ Timeout connecting to {self.device.ip}")
             return {"status": "Error", "statustext": "Request timeout"}
         except requests.ConnectionError:
+            log.error(f"❌ Cannot connect to {self.device.ip}")
             return {"status": "Error", "statustext": f"Cannot connect to {self.device.ip}"}
         except Exception as e:
+            log.error(f"❌ Error: {e}")
             return {"status": "Error", "statustext": str(e)}
 
 
 class FullyRelay:
-    """MQTT to REST relay for Fully Kiosk Browser"""
+    """MQTT to REST relay for Fully Kiosk Browser with auto-discovery"""
 
-    def __init__(self, broker: str, port: int, username: str, password: str):
+    def __init__(self, broker: str, port: int, username: str, password: str,
+                 config_dir: Path, default_password: str = "1227"):
         self.broker = broker
         self.port = port
         self.username = username
         self.password = password
 
-        self.registry = DeviceRegistry()
-        self.client = mqtt.Client(client_id="fully-relay", clean_session=True)
+        # Setup config directory
+        config_dir.mkdir(parents=True, exist_ok=True)
+        config_path = config_dir / "devices.json"
+
+        self.registry = DeviceRegistry(config_path, default_password)
+        self.client = mqtt.Client(
+            client_id=f"fully-relay-{os.getpid()}",
+            clean_session=True,
+            callback_api_version=mqtt.CallbackAPIVersion.VERSION2
+        )
 
         if username:
             self.client.username_pw_set(username, password)
 
         self.client.on_connect = self._on_connect
         self.client.on_message = self._on_message
+        self.client.on_disconnect = self._on_disconnect
 
-    def add_device(self, device_id: str, ip: str, password: str, port: int = 2323):
-        """Add a known device"""
-        self.registry.register(device_id, ip, password, port)
+        # Reconnect settings
+        self.client.reconnect_delay_set(min_delay=1, max_delay=30)
 
     def start(self):
         """Start the relay service"""
-        log.info(f"Connecting to MQTT broker: {self.broker}:{self.port}")
-        self.client.connect(self.broker, self.port, keepalive=60)
-        self.client.loop_forever()
+        log.info(f"🚀 Connecting to MQTT broker: {self.broker}:{self.port}")
 
-    def _on_connect(self, client, userdata, flags, rc):
-        if rc != 0:
-            log.error(f"MQTT connection failed: {rc}")
+        try:
+            self.client.connect(self.broker, self.port, keepalive=60)
+            self.client.loop_forever()
+        except KeyboardInterrupt:
+            log.info("👋 Shutting down...")
+            self._publish_status("offline")
+            self.client.disconnect()
+
+    def _on_connect(self, client, userdata, flags, reason_code, properties=None):
+        if reason_code != 0:
+            log.error(f"❌ MQTT connection failed: {reason_code}")
             return
 
-        log.info("Connected to MQTT broker")
+        log.info("✅ Connected to MQTT broker")
 
-        # Subscribe to command topics
-        client.subscribe("fully/cmd/+/+")
-        log.info("Subscribed to: fully/cmd/+/+")
-
-        # Subscribe to deviceInfo for auto-discovery
-        client.subscribe("fully/deviceInfo/+")
-        log.info("Subscribed to: fully/deviceInfo/+ (auto-discovery)")
+        # Subscribe to topics
+        client.subscribe("fully/cmd/+/+")        # Commands
+        client.subscribe("fully/deviceInfo/+")   # Device discovery
+        log.info("📡 Listening for commands and device discovery...")
 
         # Publish relay online status
-        client.publish("fully/relay/status", json.dumps({
-            "status": "online",
-            "timestamp": int(time.time())
-        }), retain=True)
+        self._publish_status("online")
+
+        # Log known devices
+        devices = self.registry.list_devices()
+        if devices:
+            log.info(f"📋 Known devices: {len(devices)}")
+            for d in devices:
+                log.info(f"   • {d.name or d.device_id} ({d.ip})")
+        else:
+            log.info("📋 No saved devices - waiting for discovery...")
+
+    def _on_disconnect(self, client, userdata, flags, reason_code, properties=None):
+        log.warning(f"⚠️ Disconnected from MQTT (reason: {reason_code}), reconnecting...")
 
     def _on_message(self, client, userdata, msg):
         topic = msg.topic
@@ -222,7 +317,10 @@ class FullyRelay:
         # Handle deviceInfo for auto-discovery
         if topic.startswith("fully/deviceInfo/"):
             device_id = topic.split("/")[2]
-            self.registry.discover_from_mqtt(device_id, payload)
+            ip = payload.get("ip4")
+            name = payload.get("deviceName", "")
+            if ip:
+                self.registry.discover(device_id, ip, name)
             return
 
         # Handle commands: fully/cmd/{deviceId}/{command}
@@ -235,23 +333,19 @@ class FullyRelay:
 
     def _handle_command(self, device_id: str, command: str, params: dict):
         """Handle a command for a device"""
-        log.info(f"Command received: {device_id} -> {command}")
-
         # Find device
         device = self.registry.get(device_id)
         if not device:
-            log.warning(f"Unknown device: {device_id}")
+            log.warning(f"❓ Unknown device: {device_id}")
             self._publish_ack(device_id, command, {
                 "status": "Error",
-                "statustext": f"Unknown device: {device_id}"
+                "statustext": f"Unknown device: {device_id}. Wait for device to send deviceInfo."
             })
             return
 
         # Execute command
-        client = FullyRestClient(device)
-        result = client.execute(command, params)
-
-        log.info(f"Result: {result.get('status')} - {result.get('statustext', '')}")
+        rest_client = FullyRestClient(device)
+        result = rest_client.execute(command, params)
 
         # Publish acknowledgment
         self._publish_ack(device_id, command, result)
@@ -267,24 +361,46 @@ class FullyRelay:
         }
         self.client.publish(ack_topic, json.dumps(ack_payload))
 
+    def _publish_status(self, status: str):
+        """Publish relay status"""
+        self.client.publish("fully/relay/status", json.dumps({
+            "status": status,
+            "timestamp": int(time.time()),
+            "devices": len(self.registry.list_devices())
+        }), retain=True)
+
+
+def get_config_dir() -> Path:
+    """Get platform-appropriate config directory"""
+    if sys.platform == "darwin":
+        return Path.home() / "Library" / "Application Support" / "fully-relay"
+    elif sys.platform == "win32":
+        return Path(os.environ.get("APPDATA", "")) / "fully-relay"
+    else:
+        return Path.home() / ".config" / "fully-relay"
+
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Fully Kiosk Browser Relay Service",
+        description="Fully Kiosk Browser Relay Service (Auto-Discovery)",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
+This service automatically discovers Fully devices via MQTT.
+No manual device configuration needed!
+
 Examples:
-  # Basic usage
+  # Basic usage - devices are auto-discovered
   python relay.py --broker 188.228.60.134 --user admin --password secret
 
-  # With pre-configured devices
-  python relay.py --broker 188.228.60.134 --user admin --password secret \\
-    --device 8c2c6a0f-2d65236b:192.168.40.154:1227
-
-  # Multiple devices
+  # With custom default password for discovered devices
   python relay.py --broker mqtt.example.com --user admin --password secret \\
-    --device device1:192.168.1.100:pass1 \\
-    --device device2:192.168.1.101:pass2
+    --default-password mypassword
+
+The service will:
+  1. Listen for fully/deviceInfo/+ messages
+  2. Auto-register discovered devices with their IP
+  3. Execute commands from fully/cmd/{deviceId}/{command}
+  4. Persist device list between restarts
         """
     )
 
@@ -292,42 +408,34 @@ Examples:
     parser.add_argument("--port", "-p", type=int, default=1883, help="MQTT broker port")
     parser.add_argument("--user", "-u", help="MQTT username")
     parser.add_argument("--password", "-P", help="MQTT password")
-    parser.add_argument(
-        "--device", "-d", action="append",
-        metavar="ID:IP:PASSWORD",
-        help="Pre-configure device (format: deviceId:ip:password)"
-    )
-    parser.add_argument("--default-password", default="1227", help="Default Fully password for auto-discovered devices")
+    parser.add_argument("--default-password", default="1227",
+                        help="Default Fully password for discovered devices")
+    parser.add_argument("--config-dir", type=Path, default=None,
+                        help="Config directory (default: platform-specific)")
 
     args = parser.parse_args()
+
+    config_dir = args.config_dir or get_config_dir()
 
     # Create relay
     relay = FullyRelay(
         broker=args.broker,
         port=args.port,
         username=args.user,
-        password=args.password
+        password=args.password,
+        config_dir=config_dir,
+        default_password=args.default_password
     )
 
-    # Add pre-configured devices
-    if args.device:
-        for device_spec in args.device:
-            parts = device_spec.split(":")
-            if len(parts) >= 3:
-                device_id, ip, password = parts[0], parts[1], parts[2]
-                port = int(parts[3]) if len(parts) > 3 else 2323
-                relay.add_device(device_id, ip, password, port)
-            else:
-                log.error(f"Invalid device spec: {device_spec} (expected id:ip:password)")
+    log.info("=" * 50)
+    log.info("  Fully Relay Service (Auto-Discovery)")
+    log.info("=" * 50)
+    log.info(f"  Config: {config_dir}")
+    log.info(f"  Default password: {args.default_password}")
+    log.info("=" * 50)
+    log.info("")
 
-    # Start relay
-    log.info("Starting Fully Relay Service...")
-    log.info("Press Ctrl+C to stop")
-
-    try:
-        relay.start()
-    except KeyboardInterrupt:
-        log.info("Shutting down...")
+    relay.start()
 
 
 if __name__ == "__main__":

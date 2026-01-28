@@ -1,5 +1,6 @@
 #!/bin/bash
-# Install Fully Relay as a macOS LaunchAgent
+# Install Fully Relay as a macOS LaunchAgent with auto-discovery
+# No configuration needed - just MQTT credentials!
 
 set -e
 
@@ -7,37 +8,39 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PLIST_NAME="dk.iocast.fully-relay"
 PLIST_PATH="$HOME/Library/LaunchAgents/$PLIST_NAME.plist"
 LOG_DIR="/usr/local/var/log"
-CONFIG_FILE="$SCRIPT_DIR/config.json"
+CONFIG_DIR="$HOME/Library/Application Support/fully-relay"
 
-# Check config exists
-if [ ! -f "$CONFIG_FILE" ]; then
-    echo "Error: config.json not found"
-    echo "Copy config.example.json to config.json and edit it first"
-    exit 1
+# Prompt for MQTT credentials if not provided
+if [ -z "$MQTT_BROKER" ]; then
+    echo "Fully Relay Service Installer"
+    echo "=============================="
+    echo ""
+    read -p "MQTT Broker [188.228.60.134]: " MQTT_BROKER
+    MQTT_BROKER=${MQTT_BROKER:-188.228.60.134}
 fi
 
-# Create log directory
-sudo mkdir -p "$LOG_DIR"
-sudo chown $(whoami) "$LOG_DIR"
+if [ -z "$MQTT_PORT" ]; then
+    read -p "MQTT Port [1883]: " MQTT_PORT
+    MQTT_PORT=${MQTT_PORT:-1883}
+fi
 
-# Read config
-BROKER=$(python3 -c "import json; print(json.load(open('$CONFIG_FILE'))['mqtt']['broker'])")
-PORT=$(python3 -c "import json; print(json.load(open('$CONFIG_FILE'))['mqtt'].get('port', 1883))")
-USER=$(python3 -c "import json; print(json.load(open('$CONFIG_FILE'))['mqtt']['username'])")
-PASS=$(python3 -c "import json; print(json.load(open('$CONFIG_FILE'))['mqtt']['password'])")
+if [ -z "$MQTT_USER" ]; then
+    read -p "MQTT Username: " MQTT_USER
+fi
 
-# Build device args
-DEVICE_ARGS=""
-DEVICES=$(python3 -c "
-import json
-cfg = json.load(open('$CONFIG_FILE'))
-for d in cfg.get('devices', []):
-    print(f\"{d['id']}:{d['ip']}:{d['password']}:{d.get('port', 2323)}\")
-")
+if [ -z "$MQTT_PASSWORD" ]; then
+    read -s -p "MQTT Password: " MQTT_PASSWORD
+    echo ""
+fi
 
-for device in $DEVICES; do
-    DEVICE_ARGS="$DEVICE_ARGS<string>--device</string><string>$device</string>"
-done
+if [ -z "$DEFAULT_PASSWORD" ]; then
+    read -p "Default Fully Password [1227]: " DEFAULT_PASSWORD
+    DEFAULT_PASSWORD=${DEFAULT_PASSWORD:-1227}
+fi
+
+# Create directories
+mkdir -p "$LOG_DIR" 2>/dev/null || sudo mkdir -p "$LOG_DIR"
+mkdir -p "$CONFIG_DIR"
 
 # Create plist
 cat > "$PLIST_PATH" << EOF
@@ -52,14 +55,15 @@ cat > "$PLIST_PATH" << EOF
         <string>/usr/bin/python3</string>
         <string>$SCRIPT_DIR/relay.py</string>
         <string>--broker</string>
-        <string>$BROKER</string>
+        <string>$MQTT_BROKER</string>
         <string>--port</string>
-        <string>$PORT</string>
+        <string>$MQTT_PORT</string>
         <string>--user</string>
-        <string>$USER</string>
+        <string>$MQTT_USER</string>
         <string>--password</string>
-        <string>$PASS</string>
-        $DEVICE_ARGS
+        <string>$MQTT_PASSWORD</string>
+        <string>--default-password</string>
+        <string>$DEFAULT_PASSWORD</string>
     </array>
     <key>WorkingDirectory</key>
     <string>$SCRIPT_DIR</string>
@@ -71,6 +75,8 @@ cat > "$PLIST_PATH" << EOF
     <string>$LOG_DIR/fully-relay.log</string>
     <key>StandardErrorPath</key>
     <string>$LOG_DIR/fully-relay.log</string>
+    <key>ThrottleInterval</key>
+    <integer>10</integer>
 </dict>
 </plist>
 EOF
@@ -79,10 +85,17 @@ EOF
 launchctl unload "$PLIST_PATH" 2>/dev/null || true
 launchctl load "$PLIST_PATH"
 
-echo "✓ Installed LaunchAgent: $PLIST_NAME"
-echo "✓ Logs: tail -f $LOG_DIR/fully-relay.log"
+echo ""
+echo "✅ Installed LaunchAgent: $PLIST_NAME"
+echo ""
+echo "📋 Auto-discovery enabled!"
+echo "   Devices will be discovered automatically from MQTT"
+echo "   Device list saved to: $CONFIG_DIR/devices.json"
+echo ""
+echo "📄 Logs: tail -f $LOG_DIR/fully-relay.log"
 echo ""
 echo "Commands:"
 echo "  Stop:    launchctl unload $PLIST_PATH"
 echo "  Start:   launchctl load $PLIST_PATH"
+echo "  Restart: launchctl unload $PLIST_PATH && launchctl load $PLIST_PATH"
 echo "  Status:  launchctl list | grep fully-relay"

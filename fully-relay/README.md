@@ -1,126 +1,92 @@
 # Fully Relay Service
 
-MQTT-til-REST relay til Fully Kiosk Browser enheder. Kører på en lokal Mac/PC med adgang til Fully-enheder på LAN.
+MQTT-til-REST relay til Fully Kiosk Browser med **automatisk device discovery**.
 
 ## Hvorfor?
 
 Fully Kiosk Browser **sender** data via MQTT, men kan **ikke modtage** kommandoer via MQTT. Den har kun en lokal REST API.
 
 Denne relay service:
-1. Lytter på MQTT kommandoer fra admin platformen
-2. Kalder Fully REST API lokalt på LAN
-3. Sender resultat tilbage via MQTT
+1. **Auto-opdager** Fully enheder fra MQTT deviceInfo beskeder
+2. Lytter på MQTT kommandoer fra admin platformen
+3. Kalder Fully REST API lokalt på LAN
+4. Sender resultat tilbage via MQTT
 
 ```
 Admin Platform (internet) → MQTT → Relay (LAN) → REST API → Fully
 ```
 
-## Installation
+## Installation (macOS)
 
-### macOS
+### 1. Installer dependencies
 
 ```bash
-# Installer dependencies
 pip3 install paho-mqtt requests
-
-# Opret config
-cp config.example.json config.json
-# Rediger config.json med dine indstillinger
 ```
 
-### Kør manuelt
+### 2. Kør installeren
 
 ```bash
-python3 relay.py --broker 188.228.60.134 --user admin --password SECRET \
-  --device 'DEVICE_ID:IP:PASSWORD'
-```
-
-### Kør som baggrunds-service (macOS)
-
-```bash
-# Installer launchd service
+cd fully-relay
 ./install-service.sh
+```
+
+Installeren spørger efter:
+- MQTT Broker (default: 188.228.60.134)
+- MQTT Port (default: 1883)
+- MQTT Username
+- MQTT Password
+- Default Fully Password (default: 1227)
+
+Det er alt! Enheder opdages automatisk.
+
+### 3. Tjek status
+
+```bash
+# Se logs
+tail -f /usr/local/var/log/fully-relay.log
 
 # Status
 launchctl list | grep fully-relay
-
-# Logs
-tail -f /usr/local/var/log/fully-relay.log
-
-# Stop service
-launchctl unload ~/Library/LaunchAgents/dk.iocast.fully-relay.plist
 ```
 
-## Konfiguration
-
-### Via kommandolinje
+## Manuel kørsel
 
 ```bash
-python3 relay.py \
-  --broker 188.228.60.134 \
-  --port 1883 \
-  --user admin \
-  --password SECRET \
-  --device 'device1:192.168.1.100:1227' \
-  --device 'device2:192.168.1.101:mypass'
+python3 relay.py --broker 188.228.60.134 --user admin --password SECRET
 ```
 
-### Via config.json
+Enheder opdages automatisk fra MQTT og gemmes i:
+- macOS: `~/Library/Application Support/fully-relay/devices.json`
+- Linux: `~/.config/fully-relay/devices.json`
+- Windows: `%APPDATA%/fully-relay/devices.json`
 
-```json
-{
-  "mqtt": {
-    "broker": "188.228.60.134",
-    "port": 1883,
-    "username": "admin",
-    "password": "SECRET"
-  },
-  "devices": [
-    {
-      "id": "8c2c6a0f-2d65236b",
-      "ip": "192.168.40.154",
-      "password": "1227"
-    }
-  ]
-}
+## Sådan virker auto-discovery
+
+1. Fully sender `fully/deviceInfo/{deviceId}` hver 60 sek
+2. Relay modtager beskeden og gemmer IP + navn
+3. Når kommando modtages, bruges den gemte IP til REST kald
+
+```
+Fully Tablet                    Relay Service
+     │                               │
+     │──── deviceInfo ──────────────▶│ 📋 Gemmer: TPM191E = 192.168.40.154
+     │                               │
+     │                               │◀──── fully/cmd/{id}/loadUrl ────
+     │                               │
+     │◀── REST: loadUrl ─────────────│ ⚡ Kalder http://192.168.40.154:2323
+     │                               │
+     │                               │──── fully/cmd/{id}/loadUrl/ack ──▶
 ```
 
 ## MQTT Topics
 
-### Kommandoer (ind)
-
-```
-fully/cmd/{deviceId}/{command}
-```
-
-Eksempel:
-```
-fully/cmd/8c2c6a0f-2d65236b/loadStartUrl
-fully/cmd/8c2c6a0f-2d65236b/screenOn
-fully/cmd/8c2c6a0f-2d65236b/setBrightness  {"brightness": 150}
-```
-
-### Acknowledgment (ud)
-
-```
-fully/cmd/{deviceId}/{command}/ack
-```
-
-Payload:
-```json
-{
-  "device_id": "8c2c6a0f-2d65236b",
-  "command": "loadStartUrl",
-  "result": {"status": "OK", "statustext": "Loading URL..."},
-  "timestamp": 1706480000
-}
-```
-
-### Relay Status
-
-```
-fully/relay/status  {"status": "online", "timestamp": 1706480000}
-```
+| Topic | Retning | Beskrivelse |
+|-------|---------|-------------|
+| `fully/deviceInfo/{id}` | Fully → Relay | Auto-discovery |
+| `fully/cmd/{id}/{cmd}` | Admin → Relay | Kommandoer |
+| `fully/cmd/{id}/{cmd}/ack` | Relay → Admin | Resultat |
+| `fully/relay/status` | Relay → Admin | Service status |
 
 ## Understøttede Kommandoer
 
@@ -137,23 +103,36 @@ fully/relay/status  {"status": "online", "timestamp": 1706480000}
 | `reboot` | Genstart enhed | - |
 | `screenshot` | Tag screenshot | - |
 | `deviceInfo` | Hent enhedsinfo | - |
-| `setStartUrl` | Sæt ny start-URL | `{"url": "https://..."}` |
-| `setKioskMode` | Aktiver kiosk mode | `{"value": true}` |
 
-## Auto-Discovery
+## Service Management (macOS)
 
-Relay servicen lytter også på `fully/deviceInfo/+` og opdager automatisk nye enheder. Dog kræver kommandoer et password, så pre-konfigurer enheder med `--device` eller i `config.json`.
+```bash
+# Stop
+launchctl unload ~/Library/LaunchAgents/dk.iocast.fully-relay.plist
+
+# Start
+launchctl load ~/Library/LaunchAgents/dk.iocast.fully-relay.plist
+
+# Genstart
+launchctl unload ~/Library/LaunchAgents/dk.iocast.fully-relay.plist
+launchctl load ~/Library/LaunchAgents/dk.iocast.fully-relay.plist
+
+# Afinstaller
+launchctl unload ~/Library/LaunchAgents/dk.iocast.fully-relay.plist
+rm ~/Library/LaunchAgents/dk.iocast.fully-relay.plist
+```
 
 ## Fejlfinding
 
+### "Unknown device"
+Vent på at enheden sender deviceInfo (op til 60 sek).
+
 ### "Cannot connect to device"
 - Tjek at Fully Remote Admin er aktiveret
-- Verificer IP og port (default 2323)
-- Tjek password
+- Verificer at du er på samme LAN som enheden
 
-### "Missing admin rights"
-- Nogle kommandoer (fx screenOff) kræver Device Admin rettigheder i Android
+### "Wrong password"
+Rediger `~/Library/Application Support/fully-relay/devices.json` og ret password.
 
-### Relay reconnect loop
-- Tjek MQTT credentials
-- Verificer broker er tilgængelig
+### Relay genstarter hele tiden
+Tjek logs: `tail -f /usr/local/var/log/fully-relay.log`
