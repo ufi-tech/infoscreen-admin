@@ -14,6 +14,8 @@ class Device(Base):
     ip = Column(String, default="")
     url = Column(String, default="")
     mac = Column(String, default="")
+    # Fully Kiosk Browser specific
+    fully_password = Column(String, default="")  # REST API password for Fully devices
 
 
 class Telemetry(Base):
@@ -99,3 +101,21 @@ class DeviceLog(Base):
     category = Column(String, default="system")  # system, command, status, mqtt, user
     message = Column(String, default="")
     details = Column(Text, nullable=True)  # JSON for extra data
+
+
+class CustomerCode(Base):
+    """
+    Provisioning codes for IOCast Android/TV devices.
+    Each code maps to a customer and contains device configuration.
+    """
+    __tablename__ = "customer_codes"
+
+    id = Column(Integer, primary_key=True, index=True)
+    customer_id = Column(Integer, index=True)  # References customers.id
+    code = Column(String, unique=True, index=True)  # e.g., "4821"
+    auto_approve = Column(Boolean, default=True)  # Auto-approve or manual
+    start_url = Column(String, default="https://iocast.dk")
+    kiosk_mode = Column(Boolean, default=True)
+    keep_screen_on = Column(Boolean, default=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())

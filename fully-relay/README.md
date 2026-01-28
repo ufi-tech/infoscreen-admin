@@ -1,108 +1,54 @@
 # Fully Relay Service
 
-MQTT-til-REST relay til Fully Kiosk Browser med **automatisk device discovery**.
+MQTT-til-REST relay til Fully Kiosk Browser med **zero configuration**.
 
-## Hvorfor?
-
-Fully Kiosk Browser **sender** data via MQTT, men kan **ikke modtage** kommandoer via MQTT. Den har kun en lokal REST API.
-
-Denne relay service:
-1. **Auto-opdager** Fully enheder fra MQTT deviceInfo beskeder
-2. Lytter på MQTT kommandoer fra admin platformen
-3. Kalder Fully REST API lokalt på LAN
-4. Sender resultat tilbage via MQTT
-
-```
-Admin Platform (internet) → MQTT → Relay (LAN) → REST API → Fully
-```
-
-## Installation (macOS)
-
-### 1. Installer dependencies
+## Installation
 
 ```bash
+# 1. Installer dependencies
 pip3 install paho-mqtt requests
-```
 
-### 2. Kør installeren
-
-```bash
+# 2. Kør installeren
 cd fully-relay
 ./install-service.sh
 ```
 
-Installeren spørger efter:
-- MQTT Broker (default: 188.228.60.134)
-- MQTT Port (default: 1883)
-- MQTT Username
-- MQTT Password
-- Default Fully Password (default: 1227)
+**Det er alt!** Ingen konfiguration nødvendig.
 
-Det er alt! Enheder opdages automatisk.
+## Hvad sker der automatisk?
 
-### 3. Tjek status
+1. **MQTT credentials** er built-in
+2. **Enheder opdages** automatisk fra MQTT deviceInfo
+3. **Default password** er 1227 (standard for vores opsætning)
+4. **Custom passwords** kan sættes per enhed via Admin UI
 
-```bash
-# Se logs
-tail -f /usr/local/var/log/fully-relay.log
+## Passwords
 
-# Status
-launchctl list | grep fully-relay
+| Scenarie | Løsning |
+|----------|---------|
+| Standard opsætning | Bruger default: 1227 |
+| Enhed med andet password | Sæt det via Admin UI |
+
+### Sæt password via Admin UI
+
 ```
+POST /devices/{device_id}/fully-password
+{"password": "dit_password"}
+```
+
+Password sendes automatisk med kommandoer til relay servicen.
 
 ## Manuel kørsel
 
 ```bash
-python3 relay.py --broker 188.228.60.134 --user admin --password SECRET
+python3 relay.py
 ```
 
-Enheder opdages automatisk fra MQTT og gemmes i:
-- macOS: `~/Library/Application Support/fully-relay/devices.json`
-- Linux: `~/.config/fully-relay/devices.json`
-- Windows: `%APPDATA%/fully-relay/devices.json`
+## Logs
 
-## Sådan virker auto-discovery
-
-1. Fully sender `fully/deviceInfo/{deviceId}` hver 60 sek
-2. Relay modtager beskeden og gemmer IP + navn
-3. Når kommando modtages, bruges den gemte IP til REST kald
-
+```bash
+tail -f /usr/local/var/log/fully-relay.log
 ```
-Fully Tablet                    Relay Service
-     │                               │
-     │──── deviceInfo ──────────────▶│ 📋 Gemmer: TPM191E = 192.168.40.154
-     │                               │
-     │                               │◀──── fully/cmd/{id}/loadUrl ────
-     │                               │
-     │◀── REST: loadUrl ─────────────│ ⚡ Kalder http://192.168.40.154:2323
-     │                               │
-     │                               │──── fully/cmd/{id}/loadUrl/ack ──▶
-```
-
-## MQTT Topics
-
-| Topic | Retning | Beskrivelse |
-|-------|---------|-------------|
-| `fully/deviceInfo/{id}` | Fully → Relay | Auto-discovery |
-| `fully/cmd/{id}/{cmd}` | Admin → Relay | Kommandoer |
-| `fully/cmd/{id}/{cmd}/ack` | Relay → Admin | Resultat |
-| `fully/relay/status` | Relay → Admin | Service status |
-
-## Understøttede Kommandoer
-
-| Kommando | Beskrivelse | Payload |
-|----------|-------------|---------|
-| `screenOn` | Tænd skærm | - |
-| `screenOff` | Sluk skærm | - |
-| `setBrightness` | Sæt lysstyrke | `{"brightness": 0-255}` |
-| `loadUrl` | Skift URL | `{"url": "https://..."}` |
-| `loadStartUrl` | Gå til start-URL | - |
-| `startScreensaver` | Start pauseskærm | - |
-| `stopScreensaver` | Stop pauseskærm | - |
-| `restartApp` | Genstart Fully | - |
-| `reboot` | Genstart enhed | - |
-| `screenshot` | Tag screenshot | - |
-| `deviceInfo` | Hent enhedsinfo | - |
 
 ## Service Management (macOS)
 
@@ -113,26 +59,42 @@ launchctl unload ~/Library/LaunchAgents/dk.iocast.fully-relay.plist
 # Start
 launchctl load ~/Library/LaunchAgents/dk.iocast.fully-relay.plist
 
-# Genstart
-launchctl unload ~/Library/LaunchAgents/dk.iocast.fully-relay.plist
-launchctl load ~/Library/LaunchAgents/dk.iocast.fully-relay.plist
-
-# Afinstaller
-launchctl unload ~/Library/LaunchAgents/dk.iocast.fully-relay.plist
-rm ~/Library/LaunchAgents/dk.iocast.fully-relay.plist
+# Status
+launchctl list | grep fully-relay
 ```
 
-## Fejlfinding
+## Sådan virker det
 
-### "Unknown device"
-Vent på at enheden sender deviceInfo (op til 60 sek).
+```
+┌─────────────────────────────────────────────────────────────┐
+│  Admin Platform (Synology)                                   │
+│  - Sender: fully/cmd/{id}/{command} + {"_password": "xxx"}  │
+└───────────────────────────┬─────────────────────────────────┘
+                            │ MQTT
+                            ▼
+┌─────────────────────────────────────────────────────────────┐
+│  Fully Relay (din Mac på kunde-LAN)                         │
+│  - Modtager kommando + password                             │
+│  - Kalder http://{ip}:2323/?cmd=X&password=Y                │
+└───────────────────────────┬─────────────────────────────────┘
+                            │ HTTP REST
+                            ▼
+┌─────────────────────────────────────────────────────────────┐
+│  Fully Kiosk Browser                                         │
+│  - Udfører kommando                                          │
+└─────────────────────────────────────────────────────────────┘
+```
 
-### "Cannot connect to device"
-- Tjek at Fully Remote Admin er aktiveret
-- Verificer at du er på samme LAN som enheden
+## Understøttede Kommandoer
 
-### "Wrong password"
-Rediger `~/Library/Application Support/fully-relay/devices.json` og ret password.
-
-### Relay genstarter hele tiden
-Tjek logs: `tail -f /usr/local/var/log/fully-relay.log`
+| Kommando | Beskrivelse |
+|----------|-------------|
+| `screenOn` | Tænd skærm |
+| `screenOff` | Sluk skærm |
+| `setBrightness` | Sæt lysstyrke (0-255) |
+| `loadUrl` | Skift URL |
+| `loadStartUrl` | Gå til start-URL |
+| `startScreensaver` | Start pauseskærm |
+| `stopScreensaver` | Stop pauseskærm |
+| `restartApp` | Genstart Fully app |
+| `reboot` | Genstart enhed |

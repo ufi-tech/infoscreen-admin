@@ -1,6 +1,6 @@
 #!/bin/bash
-# Install Fully Relay as a macOS LaunchAgent with auto-discovery
-# No configuration needed - just MQTT credentials!
+# Install Fully Relay as a macOS LaunchAgent
+# Zero configuration - MQTT credentials are built into the script
 
 set -e
 
@@ -10,39 +10,17 @@ PLIST_PATH="$HOME/Library/LaunchAgents/$PLIST_NAME.plist"
 LOG_DIR="/usr/local/var/log"
 CONFIG_DIR="$HOME/Library/Application Support/fully-relay"
 
-# Prompt for MQTT credentials if not provided
-if [ -z "$MQTT_BROKER" ]; then
-    echo "Fully Relay Service Installer"
-    echo "=============================="
-    echo ""
-    read -p "MQTT Broker [188.228.60.134]: " MQTT_BROKER
-    MQTT_BROKER=${MQTT_BROKER:-188.228.60.134}
-fi
-
-if [ -z "$MQTT_PORT" ]; then
-    read -p "MQTT Port [1883]: " MQTT_PORT
-    MQTT_PORT=${MQTT_PORT:-1883}
-fi
-
-if [ -z "$MQTT_USER" ]; then
-    read -p "MQTT Username: " MQTT_USER
-fi
-
-if [ -z "$MQTT_PASSWORD" ]; then
-    read -s -p "MQTT Password: " MQTT_PASSWORD
-    echo ""
-fi
-
-if [ -z "$DEFAULT_PASSWORD" ]; then
-    read -p "Default Fully Password [1227]: " DEFAULT_PASSWORD
-    DEFAULT_PASSWORD=${DEFAULT_PASSWORD:-1227}
-fi
+echo "Fully Relay Service Installer"
+echo "=============================="
+echo ""
+echo "Installing auto-discovery relay service..."
+echo ""
 
 # Create directories
 mkdir -p "$LOG_DIR" 2>/dev/null || sudo mkdir -p "$LOG_DIR"
 mkdir -p "$CONFIG_DIR"
 
-# Create plist
+# Create plist - no arguments needed, credentials are built-in
 cat > "$PLIST_PATH" << EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -54,16 +32,6 @@ cat > "$PLIST_PATH" << EOF
     <array>
         <string>/usr/bin/python3</string>
         <string>$SCRIPT_DIR/relay.py</string>
-        <string>--broker</string>
-        <string>$MQTT_BROKER</string>
-        <string>--port</string>
-        <string>$MQTT_PORT</string>
-        <string>--user</string>
-        <string>$MQTT_USER</string>
-        <string>--password</string>
-        <string>$MQTT_PASSWORD</string>
-        <string>--default-password</string>
-        <string>$DEFAULT_PASSWORD</string>
     </array>
     <key>WorkingDirectory</key>
     <string>$SCRIPT_DIR</string>
@@ -85,13 +53,15 @@ EOF
 launchctl unload "$PLIST_PATH" 2>/dev/null || true
 launchctl load "$PLIST_PATH"
 
-echo ""
 echo "✅ Installed LaunchAgent: $PLIST_NAME"
 echo ""
-echo "📋 Auto-discovery enabled!"
-echo "   Devices will be discovered automatically from MQTT"
-echo "   Device list saved to: $CONFIG_DIR/devices.json"
+echo "📋 Features:"
+echo "   • Auto-discovery of Fully devices via MQTT"
+echo "   • MQTT credentials built-in (no configuration needed)"
+echo "   • Default Fully password: 1227"
+echo "   • Custom passwords can be set via Admin UI"
 echo ""
+echo "📁 Device list: $CONFIG_DIR/devices.json"
 echo "📄 Logs: tail -f $LOG_DIR/fully-relay.log"
 echo ""
 echo "Commands:"

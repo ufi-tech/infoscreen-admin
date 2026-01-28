@@ -9,7 +9,7 @@ from ..db import SessionLocal
 from ..models import Device, Telemetry, Event
 from ..mqtt_bridge import bridge
 from .deps import require_token
-from .schemas import CommandRequest, ApproveRequest
+from .schemas import CommandRequest, ApproveRequest, FullyPasswordRequest
 from .logs import add_log
 
 # Danish command names for logging
@@ -54,6 +54,7 @@ def list_devices(request: Request):
                 "ip": d.ip,
                 "url": d.url,
                 "mac": d.mac,
+                "has_fully_password": bool(d.fully_password),  # Don't expose actual password
             }
             for d in rows
         ]
@@ -76,6 +77,7 @@ def get_device(device_id: str, request: Request):
             "ip": d.ip,
             "url": d.url,
             "mac": d.mac,
+            "has_fully_password": bool(d.fully_password),
         }
 
 
@@ -95,6 +97,12 @@ def send_command(device_id: str, body: CommandRequest, request: Request):
         # Strip "fully-" prefix for the actual device ID
         fully_device_id = device_id[6:]
         topic = f"fully/cmd/{fully_device_id}/{body.action}"
+
+        # Include Fully password in payload for relay service
+        with SessionLocal() as session:
+            device = session.get(Device, device_id)
+            if device and device.fully_password:
+                payload["_password"] = device.fully_password
     else:
         # Standard Raspberry Pi devices
         topic = f"devices/{device_id}/cmd/{body.action}"
@@ -180,3 +188,33 @@ def get_events(device_id: str, request: Request, limit: int = 100):
             }
             for r in rows
         ]
+
+
+@router.post("/{device_id}/fully-password")
+def set_fully_password(device_id: str, body: FullyPasswordRequest, request: Request):
+    """Set Fully Kiosk Browser REST API password for a device.
+
+    This password is sent to the relay service when executing commands.
+    Only applicable for Fully devices (id starts with 'fully-').
+    """
+    require_token(request)
+
+    if not device_id.startswith("fully-"):
+        raise HTTPException(status_code=400, detail="Only Fully devices support password setting")
+
+    with SessionLocal() as session:
+        device = session.get(Device, device_id)
+        if not device:
+            raise HTTPException(status_code=404, detail="Device not found")
+
+        device.fully_password = body.password
+        session.commit()
+
+        add_log(
+            device_id=device_id,
+            level="info",
+            category="command",
+            message="Fully password opdateret"
+        )
+
+        return {"ok": True, "device_id": device_id}

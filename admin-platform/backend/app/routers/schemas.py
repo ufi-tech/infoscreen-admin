@@ -68,3 +68,7 @@ class TunnelConfigRequest(BaseModel):
 
 class TunnelPortRequest(BaseModel):
     force: Optional[bool] = False
+
+
+class FullyPasswordRequest(BaseModel):
+    password: str
