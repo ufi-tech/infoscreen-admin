@@ -3,29 +3,34 @@
 #
 # Deploy:
 #   1. Kopier til Synology: /volume1/docker/infoscreen-admin/
-#   2. Opret .env.prod (kopier fra .env og opdater VITE_API_URL)
+#   2. Opret .env.prod med MQTT credentials og PORT=8080
 #   3. docker-compose -f docker-compose.prod.yml up -d --build
 #
-# Adgang: http://synology-ip:3000
+# Adgang: http://192.168.40.152:3000 (frontend), http://192.168.40.152:8080 (API)
+#
+# Note: Backend bruger network_mode: host for at tilgå MQTT på localhost
+# Port 8000 er optaget af laser_app, derfor bruger vi port 8080
 
 services:
   backend:
     build: ./backend
     container_name: infoscreen-backend
     restart: unless-stopped
+    network_mode: host
     env_file:
       - .env.prod
+    environment:
+      - PORT=8080
+      - MQTT_BROKER_HOST=127.0.0.1
     volumes:
       - ./data:/data
-    ports:
-      - "8000:8000"
+    # Ingen ports mapping - bruger host network
 
   frontend:
     build:
       context: ./frontend
       args:
-        # Synology LAN IP - opdater til din Synology IP
-        - VITE_API_URL=http://192.168.1.100:8000
+        - VITE_API_URL=http://192.168.40.152:8080
     container_name: infoscreen-frontend
     restart: unless-stopped
     ports:

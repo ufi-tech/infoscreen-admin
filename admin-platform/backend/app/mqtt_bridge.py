@@ -66,6 +66,7 @@ class MQTTBridge:
     def _on_connect(self, client, userdata, flags, rc) -> None:
         if rc != 0:
             return
+        # Standard device topics
         client.subscribe("devices/+/status")
         client.subscribe("devices/pending/+/status")
         client.subscribe("devices/pending/+/telemetry")
@@ -74,6 +75,9 @@ class MQTTBridge:
         client.subscribe("devices/+/wifi-scan")
         client.subscribe("devices/+/screenshot")
         client.subscribe("devices/+/geolocation")
+        # Fully Kiosk Browser topics
+        client.subscribe("fully/deviceInfo/+")
+        client.subscribe("fully/event/+/+")
 
     def _on_message(self, client, userdata, msg) -> None:
         topic = msg.topic
@@ -83,11 +87,17 @@ class MQTTBridge:
         except json.JSONDecodeError:
             payload = {"raw": payload_raw}
 
+        now_ms = int(time.time() * 1000)
+
+        # Handle Fully Kiosk Browser topics
+        if topic.startswith("fully/"):
+            self._handle_fully_message(topic, payload, now_ms)
+            return
+
         device_id = self._extract_device_id(topic)
         if not device_id:
             return
 
-        now_ms = int(time.time() * 1000)
         is_pending = topic.startswith("devices/pending/")
 
         with SessionLocal() as session:
@@ -246,6 +256,118 @@ class MQTTBridge:
                 session.add(event)
                 session.commit()
                 return
+
+    def _handle_fully_message(self, topic: str, payload: dict, now_ms: int) -> None:
+        """Handle Fully Kiosk Browser MQTT messages"""
+        parts = topic.split("/")
+
+        # fully/deviceInfo/{deviceId}
+        if len(parts) >= 3 and parts[1] == "deviceInfo":
+            device_id = f"fully-{parts[2]}"
+            self._process_fully_device_info(device_id, payload, now_ms)
+            return
+
+        # fully/event/{eventType}/{deviceId}
+        if len(parts) >= 4 and parts[1] == "event":
+            event_type = parts[2]
+            device_id = f"fully-{parts[3]}"
+            self._process_fully_event(device_id, event_type, payload, now_ms)
+            return
+
+    def _process_fully_device_info(self, device_id: str, payload: dict, now_ms: int) -> None:
+        """Process Fully deviceInfo message - combines status + telemetry"""
+        with SessionLocal() as session:
+            # Update/create device
+            device = session.get(Device, device_id) or Device(id=device_id)
+            was_new = device.status == "unknown" or device.status is None
+
+            device.name = payload.get("deviceName", device.name)
+            device.status = "online"
+            device.approved = True  # Auto-approve Fully devices
+            device.ip = payload.get("ip4", device.ip)
+            device.mac = payload.get("Mac", device.mac)
+            device.url = payload.get("currentPageUrl", payload.get("startUrl", device.url))
+            device.last_seen = datetime.utcnow()
+            session.merge(device)
+
+            # Log new device
+            if was_new:
+                _add_device_log(session, device_id, "success", "status",
+                    f"Fully Kiosk enhed forbundet: {device.name}",
+                    {"ip": device.ip, "mac": device.mac, "model": payload.get("model")})
+
+            # Store as telemetry (map Fully fields to our format)
+            telemetry_data = {
+                "device_type": "fully",
+                "fully_device_id": payload.get("deviceId"),
+                "battery_level": payload.get("batteryLevel"),
+                "battery_charging": payload.get("isPlugged"),
+                "screen_on": payload.get("screenOn"),
+                "screen_brightness": payload.get("screenBrightness"),
+                "wifi_ssid": payload.get("SSID", "").strip('"'),
+                "wifi_signal": payload.get("wifiSignalLevel"),
+                "ram_free_mb": payload.get("ramFreeMemory", 0) // (1024 * 1024) if payload.get("ramFreeMemory") else None,
+                "ram_total_mb": payload.get("ramTotalMemory", 0) // (1024 * 1024) if payload.get("ramTotalMemory") else None,
+                "storage_free_mb": payload.get("internalStorageFreeSpace", 0) // (1024 * 1024) if payload.get("internalStorageFreeSpace") else None,
+                "storage_total_mb": payload.get("internalStorageTotalSpace", 0) // (1024 * 1024) if payload.get("internalStorageTotalSpace") else None,
+                "android_version": payload.get("androidVersion"),
+                "app_version": payload.get("version"),
+                "kiosk_mode": payload.get("kioskMode"),
+                "maintenance_mode": payload.get("maintenanceMode"),
+                "mqtt_connected": payload.get("mqttConnected"),
+                "lat": payload.get("latitude"),
+                "lon": payload.get("longitude"),
+                "ts": now_ms,
+            }
+            telemetry = Telemetry(device_id=device_id, ts=now_ms, payload=json.dumps(telemetry_data))
+            session.add(telemetry)
+
+            # Update location if available
+            lat = payload.get("latitude")
+            lon = payload.get("longitude")
+            if lat is not None and lon is not None:
+                from sqlalchemy import select
+                existing = session.execute(
+                    select(Location).where(Location.device_id == device_id)
+                ).scalars().first()
+                if not existing:
+                    existing = Location(device_id=device_id)
+                existing.lat = float(lat)
+                existing.lon = float(lon)
+                session.add(existing)
+
+            session.commit()
+
+    def _process_fully_event(self, device_id: str, event_type: str, payload: dict, now_ms: int) -> None:
+        """Process Fully event message"""
+        with SessionLocal() as session:
+            # Update device last_seen
+            device = session.get(Device, device_id)
+            if device:
+                device.last_seen = datetime.utcnow()
+                session.merge(device)
+
+            # Store event
+            event = Event(
+                device_id=device_id,
+                ts=now_ms,
+                type=f"fully-{event_type}",
+                payload=json.dumps(payload)
+            )
+            session.add(event)
+
+            # Log significant events
+            if event_type in ("screenOn", "screenOff", "onScreensaverStart", "onScreensaverStop"):
+                _add_device_log(session, device_id, "info", "status",
+                    f"Fully event: {event_type}")
+            elif event_type == "unplugged":
+                _add_device_log(session, device_id, "warning", "status",
+                    "Fully: Strøm afbrudt")
+            elif event_type == "pluggedAC":
+                _add_device_log(session, device_id, "info", "status",
+                    "Fully: Strøm tilsluttet")
+
+            session.commit()
 
     @staticmethod
     def _extract_device_id(topic: str) -> Optional[str]:
