@@ -86,13 +86,13 @@ async function runDeployment() {
     const { stdout: pullOutput } = await execPromise(`cd ${REPO_PATH} && git pull origin ${BRANCH}`);
     console.log('[DEPLOY] Git pull:', pullOutput.trim());
 
-    // 2. Build containers
+    // 2. Build containers (using docker-compose v1 syntax for compatibility)
     console.log('[DEPLOY] Building containers...');
-    await execPromise(`cd ${REPO_PATH}/admin-platform && docker compose -f docker-compose.ufitech.yml build`);
+    await execPromise(`cd ${REPO_PATH}/admin-platform && docker-compose -f docker-compose.ufitech.yml build`);
 
     // 3. Restart containers with zero downtime
     console.log('[DEPLOY] Restarting containers...');
-    await execPromise(`cd ${REPO_PATH}/admin-platform && docker compose -f docker-compose.ufitech.yml up -d`);
+    await execPromise(`cd ${REPO_PATH}/admin-platform && docker-compose -f docker-compose.ufitech.yml up -d`);
 
     // 4. Health check
     console.log('[DEPLOY] Running health check...');

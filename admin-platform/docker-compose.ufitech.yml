@@ -4,7 +4,7 @@
 # Deploy:
 #   1. Clone repo: git clone git@github.com:ufi-tech/infoscreen-admin.git
 #   2. Create .env with MQTT credentials + WEBHOOK_SECRET
-#   3. docker compose -f docker-compose.ufitech.yml up -d --build
+#   3. docker-compose -f docker-compose.ufitech.yml up -d --build
 #
 # Access:
 #   - Frontend: https://admin.iocast.dk (via Caddy)
