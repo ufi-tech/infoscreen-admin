@@ -88,11 +88,11 @@ async function runDeployment() {
 
     // 2. Build containers
     console.log('[DEPLOY] Building containers...');
-    await execPromise(`cd ${REPO_PATH}/admin-platform && docker compose -f docker-compose.prod.yml build`);
+    await execPromise(`cd ${REPO_PATH}/admin-platform && docker compose -f docker-compose.ufitech.yml build`);
 
     // 3. Restart containers with zero downtime
     console.log('[DEPLOY] Restarting containers...');
-    await execPromise(`cd ${REPO_PATH}/admin-platform && docker compose -f docker-compose.prod.yml up -d`);
+    await execPromise(`cd ${REPO_PATH}/admin-platform && docker compose -f docker-compose.ufitech.yml up -d`);
 
     // 4. Health check
     console.log('[DEPLOY] Running health check...');
