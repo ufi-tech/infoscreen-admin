@@ -1,0 +1,80 @@
+# Production Docker Compose for ufitech-docker-01
+# Auto-deploy enabled via GitHub webhook
+#
+# Deploy:
+#   1. Clone repo: git clone git@github.com:ufi-tech/infoscreen-admin.git
+#   2. Create .env with MQTT credentials + WEBHOOK_SECRET
+#   3. docker compose -f docker-compose.ufitech.yml up -d --build
+#
+# Access:
+#   - Frontend: https://admin.iocast.dk (via Caddy)
+#   - API: https://admin.iocast.dk/api (via Caddy)
+#   - Auto-deploy webhook: https://admin.iocast.dk/deploy-webhook
+#
+# Caddy config (on ingress-01):
+#   admin.iocast.dk {
+#     handle /api/* {
+#       uri strip_prefix /api
+#       reverse_proxy ufitech-docker-01:8080
+#     }
+#     handle /deploy-webhook* {
+#       reverse_proxy ufitech-docker-01:9006
+#     }
+#     handle {
+#       reverse_proxy ufitech-docker-01:3000
+#     }
+#   }
+
+services:
+  backend:
+    build: ./backend
+    container_name: iocast-admin-backend
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - PORT=8080
+      - MQTT_BROKER_HOST=188.228.60.134
+      - MQTT_BROKER_PORT=1883
+      - DATABASE_URL=sqlite:////data/app.db
+    volumes:
+      - ./data:/data
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/docs"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        - VITE_API_URL=https://admin.iocast.dk/api
+    container_name: iocast-admin-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+
+  auto-deploy:
+    build: ./deploy/auto-deploy
+    container_name: iocast-admin-auto-deploy
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - PORT=9006
+      - BRANCH=main
+      - REPO_PATH=/repo
+    volumes:
+      - /home/ubuntu/infoscreen-admin:/repo:rw
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /root/.ssh:/root/.ssh:ro
+    ports:
+      - "9006:9006"
+
+volumes:
+  data:

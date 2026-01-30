@@ -1,0 +1,12 @@
+{
+  "name": "admin-platform-auto-deploy",
+  "version": "1.0.0",
+  "description": "GitHub webhook handler for auto-deployment",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2"
+  }
+}
