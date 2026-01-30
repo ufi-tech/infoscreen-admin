@@ -236,8 +236,9 @@ class MQTTBridge:
                     manufacturer = payload.get("manufacturer", "")
                     model = payload.get("model", "")
 
-                    # Set name if not already set (or if it's just the device_id)
-                    if not device.name or device.name == device_id or device.name.startswith("IOCast iocast-"):
+                    # Set name if not already set (or if it's a generic auto-generated name)
+                    # Provisioning sets name to "IOCast {8-char-suffix}" which we want to replace
+                    if not device.name or device.name == device_id or device.name.startswith("IOCast "):
                         if manufacturer and model:
                             # e.g., "LENOVO Lenovo TB-X606F" -> "Lenovo TB-X606F"
                             if model.lower().startswith(manufacturer.lower()):
