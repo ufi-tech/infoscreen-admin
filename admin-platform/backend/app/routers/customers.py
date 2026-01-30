@@ -354,6 +354,21 @@ def assign_device_to_customer(
                 logger.error(f"Failed to send MQTT loadUrl: {e}")
                 # Don't fail the request - assignment is already saved
 
+        # Notify customer's CMS about new device assignment via MQTT
+        if customer.cms_subdomain:
+            try:
+                mqtt_bridge.publish(
+                    f"cms/{customer.cms_subdomain}/assignments/add",
+                    {
+                        "device_id": body.device_id,
+                        "screen_uuid": body.screen_uuid,
+                        "display_url": display_url
+                    }
+                )
+                logger.info(f"MQTT assignment sync sent to CMS {customer.cms_subdomain}")
+            except Exception as e:
+                logger.error(f"Failed to send MQTT assignment sync: {e}")
+
         # Get device info
         device = session.execute(
             select(Device).where(Device.id == body.device_id)
@@ -426,6 +441,21 @@ def update_device_assignment(
             except Exception as e:
                 logger.error(f"Failed to send MQTT loadUrl: {e}")
 
+        # Notify customer's CMS about updated assignment via MQTT
+        if customer and customer.cms_subdomain:
+            try:
+                mqtt_bridge.publish(
+                    f"cms/{customer.cms_subdomain}/assignments/add",
+                    {
+                        "device_id": device_id,
+                        "screen_uuid": body.screen_uuid,
+                        "display_url": assignment.display_url
+                    }
+                )
+                logger.info(f"MQTT assignment update sent to CMS {customer.cms_subdomain}")
+            except Exception as e:
+                logger.error(f"Failed to send MQTT assignment update: {e}")
+
         return {
             "assignment_id": assignment.id,
             "device_id": assignment.device_id,
@@ -452,10 +482,24 @@ def remove_device_from_customer(customer_id: int, device_id: str, request: Reque
         if not assignment:
             raise HTTPException(status_code=404, detail="Assignment not found")
 
+        # Get customer for CMS notification
+        customer = session.get(Customer, customer_id)
+
         session.delete(assignment)
         session.commit()
 
         logger.info(f"Device {device_id} removed from customer {customer_id}")
+
+        # Notify customer's CMS about device removal via MQTT
+        if customer and customer.cms_subdomain:
+            try:
+                mqtt_bridge.publish(
+                    f"cms/{customer.cms_subdomain}/assignments/remove",
+                    {"device_id": device_id}
+                )
+                logger.info(f"MQTT assignment removal sent to CMS {customer.cms_subdomain}")
+            except Exception as e:
+                logger.error(f"Failed to send MQTT assignment removal: {e}")
 
         return {"status": "removed", "device_id": device_id, "customer_id": customer_id}
 
