@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .db import Base, engine
 from .mqtt_bridge import bridge
-from .routers import devices, legacy, locations, customers, assignments, tunnels, logs
+from .routers import devices, legacy, locations, customers, assignments, tunnels, logs, customer_codes
 
 app = FastAPI(title="Admin Platform API")
 
@@ -25,6 +25,7 @@ app.include_router(customers.router)
 app.include_router(assignments.router)
 app.include_router(tunnels.router)
 app.include_router(logs.router)
+app.include_router(customer_codes.router)
 
 
 def run_migrations(conn, logger) -> None:

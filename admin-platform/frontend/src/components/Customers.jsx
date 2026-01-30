@@ -11,6 +11,9 @@ import {
   fetchCmsCredentials,
   stopCustomerCms,
   startCustomerCms,
+  fetchCustomerCodes,
+  createCustomerCode,
+  deleteCustomerCode,
 } from '../api.js';
 import StatusBadge from './StatusBadge.jsx';
 import CollapsibleSection from './CollapsibleSection.jsx';
@@ -341,6 +344,226 @@ function CMSManagementSection({ customer, onRefresh }) {
 }
 
 // ============================================================================
+// Provisioning Codes Section
+// ============================================================================
+
+function ProvisioningCodesSection({ customer, onRefresh }) {
+  const [codes, setCodes] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [creating, setCreating] = useState(false);
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [newCode, setNewCode] = useState({
+    code: '',
+    start_url: '',
+    auto_approve: true,
+    kiosk_mode: true,
+    keep_screen_on: true,
+  });
+
+  // Load codes for this customer
+  useEffect(() => {
+    if (!customer?.id) return;
+    loadCodes();
+  }, [customer?.id]);
+
+  const loadCodes = async () => {
+    setLoading(true);
+    try {
+      const data = await fetchCustomerCodes(customer.id);
+      setCodes(data);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCreateCode = async (e) => {
+    e.preventDefault();
+    if (!newCode.start_url) {
+      setError('Start URL er påkrævet');
+      return;
+    }
+    setCreating(true);
+    setError(null);
+    try {
+      await createCustomerCode({
+        customer_id: customer.id,
+        code: newCode.code || undefined, // Auto-generate if empty
+        start_url: newCode.start_url,
+        auto_approve: newCode.auto_approve,
+        kiosk_mode: newCode.kiosk_mode,
+        keep_screen_on: newCode.keep_screen_on,
+      });
+      setShowCreateForm(false);
+      setNewCode({
+        code: '',
+        start_url: '',
+        auto_approve: true,
+        kiosk_mode: true,
+        keep_screen_on: true,
+      });
+      await loadCodes();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const handleDeleteCode = async (codeId, codeValue) => {
+    if (!window.confirm(`Er du sikker på at du vil slette koden ${codeValue}?`)) return;
+    try {
+      await deleteCustomerCode(codeId);
+      await loadCodes();
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
+  const copyToClipboard = (text) => {
+    navigator.clipboard.writeText(text);
+  };
+
+  // Set default URL from CMS if available
+  useEffect(() => {
+    if (customer?.cms_subdomain && !newCode.start_url) {
+      setNewCode(prev => ({
+        ...prev,
+        start_url: `https://${customer.cms_subdomain}.screen.iocast.dk/screen/`
+      }));
+    }
+  }, [customer?.cms_subdomain]);
+
+  return (
+    <CollapsibleSection title="Provisioning Koder" defaultOpen={false}>
+      <div className="provisioning-codes-section">
+        {error && <div className="form-error">{error}</div>}
+
+        <p className="info-text">
+          Koder som enheder kan bruge til at registrere sig hos denne kunde.
+          Indtast koden på enheden for at modtage URL og MQTT-konfiguration.
+        </p>
+
+        {loading ? (
+          <div className="loading-spinner small" />
+        ) : codes.length === 0 ? (
+          <p className="no-codes">Ingen koder oprettet endnu</p>
+        ) : (
+          <div className="codes-list">
+            {codes.map((code) => (
+              <div key={code.id} className="code-card">
+                <div className="code-header">
+                  <span className="code-value">{code.code}</span>
+                  <div className="code-actions">
+                    <button
+                      className="btn-icon copy"
+                      onClick={() => copyToClipboard(code.code)}
+                      title="Kopier kode"
+                    >
+                      📋
+                    </button>
+                    <button
+                      className="btn-icon danger"
+                      onClick={() => handleDeleteCode(code.id, code.code)}
+                      title="Slet kode"
+                    >
+                      ×
+                    </button>
+                  </div>
+                </div>
+                <div className="code-details">
+                  <div className="code-url" title={code.start_url}>
+                    {code.start_url.length > 50
+                      ? code.start_url.substring(0, 50) + '...'
+                      : code.start_url}
+                  </div>
+                  <div className="code-flags">
+                    {code.auto_approve && <span className="flag auto-approve">Auto-godkend</span>}
+                    {code.kiosk_mode && <span className="flag kiosk">Kiosk</span>}
+                    {code.keep_screen_on && <span className="flag screen-on">Skærm tændt</span>}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {showCreateForm ? (
+          <form className="create-code-form" onSubmit={handleCreateCode}>
+            <div className="form-row">
+              <div className="form-group">
+                <label>Kode (valgfri - auto-genereres)</label>
+                <input
+                  type="text"
+                  value={newCode.code}
+                  onChange={(e) => setNewCode({ ...newCode, code: e.target.value.replace(/\D/g, '').slice(0, 4) })}
+                  placeholder="F.eks. 1234"
+                  maxLength={4}
+                  pattern="[0-9]{4}"
+                />
+              </div>
+            </div>
+
+            <div className="form-group">
+              <label>Start URL *</label>
+              <input
+                type="url"
+                value={newCode.start_url}
+                onChange={(e) => setNewCode({ ...newCode, start_url: e.target.value })}
+                placeholder="https://kunde.screen.iocast.dk/screen/uuid"
+                required
+              />
+            </div>
+
+            <div className="form-row checkboxes">
+              <label>
+                <input
+                  type="checkbox"
+                  checked={newCode.auto_approve}
+                  onChange={(e) => setNewCode({ ...newCode, auto_approve: e.target.checked })}
+                />
+                Auto-godkend
+              </label>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={newCode.kiosk_mode}
+                  onChange={(e) => setNewCode({ ...newCode, kiosk_mode: e.target.checked })}
+                />
+                Kiosk-tilstand
+              </label>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={newCode.keep_screen_on}
+                  onChange={(e) => setNewCode({ ...newCode, keep_screen_on: e.target.checked })}
+                />
+                Hold skærm tændt
+              </label>
+            </div>
+
+            <div className="form-actions">
+              <button type="button" className="secondary" onClick={() => setShowCreateForm(false)}>
+                Annuller
+              </button>
+              <button type="submit" className="primary" disabled={creating}>
+                {creating ? 'Opretter...' : 'Opret Kode'}
+              </button>
+            </div>
+          </form>
+        ) : (
+          <button className="btn btn-primary" onClick={() => setShowCreateForm(true)}>
+            + Opret Ny Kode
+          </button>
+        )}
+      </div>
+    </CollapsibleSection>
+  );
+}
+
+// ============================================================================
 // Customer Detail Panel
 // ============================================================================
 
@@ -415,6 +638,9 @@ function CustomerDetail({
 
       {/* CMS Management Section */}
       <CMSManagementSection customer={customer} onRefresh={onCustomerRefresh} />
+
+      {/* Provisioning Codes Section */}
+      <ProvisioningCodesSection customer={customer} onRefresh={onCustomerRefresh} />
 
       <div className="customer-devices-section">
         <div className="section-header">

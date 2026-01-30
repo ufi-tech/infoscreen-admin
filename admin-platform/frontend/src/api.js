@@ -326,3 +326,62 @@ export async function fetchNextCmsPorts() {
   if (!res.ok) throw new Error('Failed to fetch next CMS ports');
   return res.json();
 }
+
+// ============================================================================
+// Customer Provisioning Codes API (IOCast Device Provisioning)
+// ============================================================================
+
+export async function fetchCustomerCodes(customerId = null) {
+  const url = customerId
+    ? `${API_URL}/customer-codes?customer_id=${customerId}`
+    : `${API_URL}/customer-codes`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error('Failed to fetch customer codes');
+  return res.json();
+}
+
+export async function fetchCustomerCodeById(codeId) {
+  const res = await fetch(`${API_URL}/customer-codes/${codeId}`);
+  if (!res.ok) throw new Error('Failed to fetch customer code');
+  return res.json();
+}
+
+export async function fetchCustomerCodeByCode(code) {
+  const res = await fetch(`${API_URL}/customer-codes/by-code/${code}`);
+  if (!res.ok) throw new Error('Failed to fetch customer code');
+  return res.json();
+}
+
+export async function createCustomerCode(payload) {
+  const res = await fetch(`${API_URL}/customer-codes`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || 'Failed to create customer code');
+  }
+  return res.json();
+}
+
+export async function updateCustomerCode(codeId, payload) {
+  const res = await fetch(`${API_URL}/customer-codes/${codeId}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || 'Failed to update customer code');
+  }
+  return res.json();
+}
+
+export async function deleteCustomerCode(codeId) {
+  const res = await fetch(`${API_URL}/customer-codes/${codeId}`, {
+    method: 'DELETE',
+  });
+  if (!res.ok) throw new Error('Failed to delete customer code');
+  return res.json();
+}
