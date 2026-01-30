@@ -51,7 +51,7 @@ services:
     build:
       context: ./frontend
       args:
-        - VITE_API_URL=https://admin.iocast.dk/api
+        - VITE_API_URL=https://admin.screen.iocast.dk/api
     container_name: iocast-admin-frontend
     restart: unless-stopped
     ports:
