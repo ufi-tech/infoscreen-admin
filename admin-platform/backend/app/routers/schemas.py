@@ -48,12 +48,27 @@ class CustomerRequest(BaseModel):
     email: Optional[str] = None
     phone: Optional[str] = None
     notes: Optional[str] = None
+    # CMS provisioning fields
+    cms_subdomain: Optional[str] = None
+    auto_provision: Optional[bool] = False  # If true, auto-provision CMS on create
 
 
 class AssignmentRequest(BaseModel):
     customer_id: Optional[int] = None
     device_id: Optional[str] = None
     legacy_id: Optional[int] = None
+
+
+class DeviceAssignmentRequest(BaseModel):
+    device_id: str
+    screen_uuid: Optional[str] = None  # Optional: also set screen
+
+
+class PortalUserRequest(BaseModel):
+    email: str
+    password: Optional[str] = None  # Only required for create
+    role: Optional[str] = "admin"  # admin, editor, viewer
+    is_active: Optional[bool] = True
 
 
 class TunnelConfigRequest(BaseModel):
@@ -72,3 +87,7 @@ class TunnelPortRequest(BaseModel):
 
 class FullyPasswordRequest(BaseModel):
     password: str
+
+
+class ScreenAssignmentRequest(BaseModel):
+    screen_uuid: Optional[str] = None  # UUID of the CMS screen to display

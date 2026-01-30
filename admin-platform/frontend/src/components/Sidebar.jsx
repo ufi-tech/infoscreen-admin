@@ -1,9 +1,10 @@
 import React from 'react';
 
 const NAV_ITEMS = [
-  { id: 'devices', label: 'MQTT Enheder', icon: '📡' },
-  { id: 'legacy', label: 'Legacy Enheder', icon: '📺' },
-  { id: 'customers', label: 'Kunder', icon: '👥' },
+  { id: 'devices', label: 'MQTT Enheder', icon: '\uD83D\uDCE1' },
+  { id: 'android', label: 'Android/TV', icon: '\uD83D\uDCF1' },
+  { id: 'legacy', label: 'Legacy Enheder', icon: '\uD83D\uDCFA' },
+  { id: 'customers', label: 'Kunder', icon: '\uD83D\uDC65' },
 ];
 
 export default function Sidebar({ view, onViewChange, collapsed = false }) {

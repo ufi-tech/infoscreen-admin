@@ -33,7 +33,9 @@ nano .env.prod
 
 Opdater:
 - `MQTT_PASSWORD` - din MQTT password
-- `VITE_API_URL` - Synology LAN IP (f.eks. `http://192.168.1.100:8000`)
+- `VITE_API_URL` - Synology LAN IP (f.eks. `http://192.168.40.152:8080`)
+
+**Note:** Backend bruger port 8080 (ikke 8000) da port 8000 er optaget af laser_app på Synology.
 
 ### 4. Opdater docker-compose.prod.yml
 
@@ -43,7 +45,7 @@ Ret `VITE_API_URL` i frontend build args til din Synology IP:
 frontend:
   build:
     args:
-      - VITE_API_URL=http://192.168.1.100:8000  # Din Synology IP
+      - VITE_API_URL=http://192.168.40.152:8080  # Synology IP (port 8080!)
 ```
 
 ### 5. Start containers
@@ -65,9 +67,9 @@ docker logs infoscreen-frontend
 
 ## Adgang
 
-- **Frontend**: http://<synology-ip>:3000
-- **API**: http://<synology-ip>:8000
-- **API Docs**: http://<synology-ip>:8000/docs
+- **Frontend**: http://192.168.40.152:3000
+- **API**: http://192.168.40.152:8080
+- **API Docs**: http://192.168.40.152:8080/docs
 
 ## Opdatering
 

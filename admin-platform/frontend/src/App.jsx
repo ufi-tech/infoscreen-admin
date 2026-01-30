@@ -4,7 +4,7 @@ import { useBreakpoint } from './hooks/useMediaQuery.js';
 import Layout from './components/Layout.jsx';
 import DeviceList from './components/DeviceList.jsx';
 import DeviceDetail from './components/DeviceDetail.jsx';
-import { LegacyDevices, CustomerSection } from './components/index.js';
+import { LegacyDevices, Customers, AndroidDevices } from './components/index.js';
 
 function DevicesView() {
   const { isMobile } = useBreakpoint();
@@ -56,15 +56,11 @@ function LegacyView() {
 }
 
 function CustomersView() {
-  const { customers, loadCustomers, setError } = useDeviceContext();
+  return <Customers />;
+}
 
-  return (
-    <CustomerSection
-      customers={customers}
-      loadCustomers={loadCustomers}
-      setError={setError}
-    />
-  );
+function AndroidView() {
+  return <AndroidDevices />;
 }
 
 function AppContent() {
@@ -73,6 +69,7 @@ function AppContent() {
   return (
     <Layout>
       {view === 'devices' && <DevicesView />}
+      {view === 'android' && <AndroidView />}
       {view === 'legacy' && <LegacyView />}
       {view === 'customers' && <CustomersView />}
     </Layout>

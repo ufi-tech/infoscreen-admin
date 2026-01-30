@@ -50,6 +50,19 @@ export function formatTimestamp(value) {
   return date.toLocaleString();
 }
 
+export function formatRelativeTime(timestamp) {
+  if (!timestamp) return '-';
+
+  const now = Date.now();
+  const ts = typeof timestamp === 'string' ? new Date(timestamp).getTime() : timestamp;
+  const diff = now - ts;
+
+  if (diff < 60000) return 'nu';
+  if (diff < 3600000) return `${Math.floor(diff / 60000)} min`;
+  if (diff < 86400000) return `${Math.floor(diff / 3600000)} timer`;
+  return formatTimestamp(timestamp);
+}
+
 export function latestEvent(events, type) {
   if (!Array.isArray(events)) return null;
   return events.find((event) => event.type === type) || null;

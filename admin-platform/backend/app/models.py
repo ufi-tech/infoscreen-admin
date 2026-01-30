@@ -64,6 +64,15 @@ class Customer(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
+    # CMS Configuration (for auto-provisioned CMS instances)
+    cms_subdomain = Column(String, nullable=True, unique=True)  # "broerup" → broerup.screen.iocast.dk
+    cms_status = Column(String, default="none")  # none, pending, provisioning, active, stopped, error
+    cms_docker_port = Column(Integer, nullable=True)  # e.g., 45770
+    cms_deploy_port = Column(Integer, nullable=True)  # e.g., 9007
+    cms_api_key = Column(String, nullable=True)  # For calling CMS external API
+    cms_admin_password = Column(String, nullable=True)  # Generated admin password (encrypted)
+    cms_provisioned_at = Column(DateTime(timezone=True), nullable=True)
+
 
 class Assignment(Base):
     __tablename__ = "assignments"
@@ -118,4 +127,39 @@ class CustomerCode(Base):
     kiosk_mode = Column(Boolean, default=True)
     keep_screen_on = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
+class PortalUser(Base):
+    """
+    Portal users for customer self-service at portal.iocast.dk.
+    Each user belongs to a customer and can manage their devices/content.
+    """
+    __tablename__ = "portal_users"
+
+    id = Column(Integer, primary_key=True, index=True)
+    customer_id = Column(Integer, index=True)  # References customers.id
+    email = Column(String, unique=True, index=True)
+    password_hash = Column(String)
+    role = Column(String, default="admin")  # admin, editor, viewer
+    is_active = Column(Boolean, default=True)
+    last_login = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
+class DeviceAssignment(Base):
+    """
+    Extended device-to-customer assignment with screen mapping.
+    Tracks which CMS screen a device should display.
+    """
+    __tablename__ = "device_assignments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    device_id = Column(String, unique=True, index=True)  # MQTT device ID
+    customer_id = Column(Integer, index=True)  # References customers.id
+    screen_uuid = Column(String, nullable=True)  # UUID from customer's CMS
+    display_url = Column(String, nullable=True)  # Full URL to CMS screen
+    assigned_at = Column(DateTime(timezone=True), server_default=func.now())
+    assigned_by = Column(String, nullable=True)  # Admin username who made assignment
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())

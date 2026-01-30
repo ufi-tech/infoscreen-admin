@@ -157,3 +157,172 @@ export async function fetchDeviceLogs(deviceId, limit = 50) {
   if (!res.ok) throw new Error('Failed to fetch device logs');
   return res.json();
 }
+
+export async function setFullyPassword(deviceId, password) {
+  const res = await fetch(`${API_URL}/devices/${deviceId}/fully-password`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ password }),
+  });
+  if (!res.ok) throw new Error('Failed to set Fully password');
+  return res.json();
+}
+
+// ============================================================================
+// Customer Device Assignment API (IOCast Platform)
+// ============================================================================
+
+export async function fetchCustomerDevices(customerId) {
+  const res = await fetch(`${API_URL}/customers/${customerId}/devices`);
+  if (!res.ok) throw new Error('Failed to fetch customer devices');
+  return res.json();
+}
+
+export async function assignDeviceToCustomer(customerId, deviceId, screenUuid = null) {
+  const res = await fetch(`${API_URL}/customers/${customerId}/devices`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ device_id: deviceId, screen_uuid: screenUuid }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || 'Failed to assign device');
+  }
+  return res.json();
+}
+
+export async function updateDeviceAssignment(customerId, deviceId, screenUuid) {
+  const res = await fetch(`${API_URL}/customers/${customerId}/devices/${deviceId}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ device_id: deviceId, screen_uuid: screenUuid }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || 'Failed to update device assignment');
+  }
+  return res.json();
+}
+
+export async function removeDeviceFromCustomer(customerId, deviceId) {
+  const res = await fetch(`${API_URL}/customers/${customerId}/devices/${deviceId}`, {
+    method: 'DELETE',
+  });
+  if (!res.ok) throw new Error('Failed to remove device');
+  return res.json();
+}
+
+export async function fetchUnassignedDevices() {
+  const res = await fetch(`${API_URL}/customers/unassigned-devices`);
+  if (!res.ok) throw new Error('Failed to fetch unassigned devices');
+  return res.json();
+}
+
+export async function deleteCustomer(customerId) {
+  const res = await fetch(`${API_URL}/customers/${customerId}`, {
+    method: 'DELETE',
+  });
+  if (!res.ok) throw new Error('Failed to delete customer');
+  return res.json();
+}
+
+// ============================================================================
+// Screen Assignment API (IOCast Platform - Fase 3)
+// ============================================================================
+
+export async function fetchDeviceScreen(deviceId) {
+  const res = await fetch(`${API_URL}/devices/${deviceId}/screen`);
+  if (!res.ok) throw new Error('Failed to fetch device screen');
+  return res.json();
+}
+
+export async function setDeviceScreen(deviceId, screenUuid) {
+  const res = await fetch(`${API_URL}/devices/${deviceId}/screen`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ screen_uuid: screenUuid }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || 'Failed to set device screen');
+  }
+  return res.json();
+}
+
+export async function fetchCustomerScreens(customerId) {
+  const res = await fetch(`${API_URL}/customers/${customerId}/screens`);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || 'Failed to fetch screens');
+  }
+  return res.json();
+}
+
+export async function fetchCustomerCmsInfo(customerId) {
+  const res = await fetch(`${API_URL}/customers/${customerId}/cms/info`);
+  if (!res.ok) throw new Error('Failed to fetch CMS info');
+  return res.json();
+}
+
+// ============================================================================
+// CMS Provisioning API (IOCast Platform - Fase 4)
+// ============================================================================
+
+export async function provisionCustomerCms(customerId, subdomain, displayName = null) {
+  const res = await fetch(`${API_URL}/customers/${customerId}/cms/provision`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      subdomain,
+      display_name: displayName,
+    }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || 'Failed to provision CMS');
+  }
+  return res.json();
+}
+
+export async function fetchCmsStatus(customerId) {
+  const res = await fetch(`${API_URL}/customers/${customerId}/cms/status`);
+  if (!res.ok) throw new Error('Failed to fetch CMS status');
+  return res.json();
+}
+
+export async function fetchCmsCredentials(customerId) {
+  const res = await fetch(`${API_URL}/customers/${customerId}/cms/credentials`);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || 'Failed to fetch CMS credentials');
+  }
+  return res.json();
+}
+
+export async function stopCustomerCms(customerId) {
+  const res = await fetch(`${API_URL}/customers/${customerId}/cms/stop`, {
+    method: 'POST',
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || 'Failed to stop CMS');
+  }
+  return res.json();
+}
+
+export async function startCustomerCms(customerId) {
+  const res = await fetch(`${API_URL}/customers/${customerId}/cms/start`, {
+    method: 'POST',
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || 'Failed to start CMS');
+  }
+  return res.json();
+}
+
+export async function fetchNextCmsPorts() {
+  const res = await fetch(`${API_URL}/customers/cms/next-ports`);
+  if (!res.ok) throw new Error('Failed to fetch next CMS ports');
+  return res.json();
+}

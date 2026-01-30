@@ -1,10 +1,14 @@
 import json
+import logging
 import threading
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional
 
 import paho.mqtt.client as mqtt
+
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
 
 from .db import SessionLocal
 from .models import Device, Telemetry, Event, Location, DeviceLog, CustomerCode, Customer, Assignment
@@ -34,12 +38,18 @@ class MQTTBridge:
     _warning_cache = {}
     WARNING_COOLDOWN = 300  # 5 minutes between same warnings
     TELEMETRY_LOG_INTERVAL = 3600  # Log telemetry summary every hour
+    OFFLINE_TIMEOUT = 600  # 10 minutes without data = offline (increased for stability)
 
     def __init__(self) -> None:
-        self._client = mqtt.Client(client_id=MQTT_CLIENT_ID, clean_session=True)
+        # Use unique client ID with timestamp to avoid conflicts
+        import uuid
+        unique_client_id = f"{MQTT_CLIENT_ID}-{uuid.uuid4().hex[:8]}"
+        self._client = mqtt.Client(client_id=unique_client_id, clean_session=True)
+        logger.info(f"[MQTT] Using client ID: {unique_client_id}")
         if MQTT_USERNAME:
             self._client.username_pw_set(MQTT_USERNAME, MQTT_PASSWORD)
         self._client.on_connect = self._on_connect
+        self._client.on_subscribe = self._on_subscribe
         self._client.on_message = self._on_message
         self._lock = threading.Lock()
 
@@ -55,15 +65,56 @@ class MQTTBridge:
         return False
 
     def start(self) -> None:
+        logger.info(f"[MQTT] Starting bridge, connecting to {MQTT_BROKER_HOST}:{MQTT_BROKER_PORT}")
         self._client.connect(MQTT_BROKER_HOST, MQTT_BROKER_PORT, keepalive=60)
         thread = threading.Thread(target=self._client.loop_forever, daemon=True)
         thread.start()
+        logger.info("[MQTT] Bridge thread started")
+
+        # Start offline checker thread
+        offline_thread = threading.Thread(target=self._offline_checker_loop, daemon=True)
+        offline_thread.start()
+        logger.info("[MQTT] Offline checker thread started")
+
+    def _offline_checker_loop(self) -> None:
+        """Periodically check for devices that haven't reported in and mark them offline."""
+        while True:
+            time.sleep(60)  # Check every minute
+            try:
+                self._mark_stale_devices_offline()
+            except Exception as e:
+                logger.error(f"[MQTT] Offline checker error: {e}")
+
+    def _mark_stale_devices_offline(self) -> None:
+        """Mark devices as offline if not seen within OFFLINE_TIMEOUT seconds."""
+        from sqlalchemy import select
+        cutoff = datetime.utcnow() - timedelta(seconds=self.OFFLINE_TIMEOUT)
+
+        with SessionLocal() as session:
+            # Find devices that are online but haven't reported recently
+            devices = session.execute(
+                select(Device).where(
+                    Device.status == "online",
+                    Device.last_seen < cutoff
+                )
+            ).scalars().all()
+
+            for device in devices:
+                device.status = "offline"
+                session.merge(device)
+                _add_device_log(session, device.id, "warning", "status",
+                    f"Enhed markeret offline (ingen data i {self.OFFLINE_TIMEOUT // 60} min)")
+
+            if devices:
+                session.commit()
+                logger.info(f"[MQTT] Marked {len(devices)} devices as offline")
 
     def publish(self, topic: str, payload: dict) -> None:
         with self._lock:
             self._client.publish(topic, json.dumps(payload))
 
     def _on_connect(self, client, userdata, flags, rc) -> None:
+        logger.info(f"[MQTT] Connected with rc={rc}")
         if rc != 0:
             return
         # Standard device topics
@@ -80,11 +131,16 @@ class MQTTBridge:
         client.subscribe("fully/event/+/+")
         client.subscribe("fully/cmd/+/+/ack")  # Command acknowledgments from relay
         client.subscribe("fully/relay/status")  # Relay service status
-        # IOCast provisioning topics
-        client.subscribe("provision/+/request")
+        # IOCast provisioning topics - use QoS 1 for reliability
+        result, mid = client.subscribe("provision/+/request", qos=1)
+        logger.info(f"[MQTT] Subscribing to provision/+/request: result={result}, mid={mid}")
+
+    def _on_subscribe(self, client, userdata, mid, granted_qos) -> None:
+        logger.info(f"[MQTT] Subscribe confirmed: mid={mid}, granted_qos={granted_qos}")
 
     def _on_message(self, client, userdata, msg) -> None:
         topic = msg.topic
+        logger.info(f"[MQTT] Received: {topic}")
         payload_raw = msg.payload.decode("utf-8", errors="ignore")
         try:
             payload = json.loads(payload_raw) if payload_raw else {}
@@ -100,6 +156,7 @@ class MQTTBridge:
 
         # Handle IOCast provisioning requests
         if topic.startswith("provision/") and topic.endswith("/request"):
+            logger.info(f"[MQTT] Processing provision request: {topic}")
             self._handle_provision_request(topic, payload, now_ms)
             return
 
@@ -118,6 +175,12 @@ class MQTTBridge:
                 old_status = device.status
                 new_status = payload.get("status", device.status)
                 was_new = device.id is None or device.status == "unknown"
+
+                # IOCast Android app bug: it sends status="offline" even when online
+                # Fix: if we're receiving a message from the device, it's online
+                if device_id.startswith("iocast-") and new_status == "offline":
+                    new_status = "online"
+                    logger.info(f"[MQTT] IOCast device {device_id} sent 'offline' but is active - setting online")
 
                 device.status = new_status
                 if is_pending:
@@ -151,6 +214,16 @@ class MQTTBridge:
             if topic.endswith("/telemetry"):
                 event = Telemetry(device_id=device_id, ts=payload.get("ts", now_ms), payload=json.dumps(payload))
                 session.add(event)
+
+                # Update device status to online when receiving telemetry
+                device = session.get(Device, device_id)
+                if device:
+                    device.status = "online"
+                    device.last_seen = datetime.utcnow()
+                    # Update IP if provided in telemetry (Android devices send this)
+                    if payload.get("ip"):
+                        device.ip = payload.get("ip")
+                    session.merge(device)
 
                 # Log significant telemetry events (not every update)
                 temp = payload.get("temp_c") or payload.get("temp")
@@ -429,100 +502,114 @@ class MQTTBridge:
         # Extract customer code from topic: provision/{code}/request
         parts = topic.split("/")
         if len(parts) < 3:
+            logger.warning(f"[MQTT] Invalid provision topic format: {topic}")
             return
         customer_code = parts[1]
         device_id = payload.get("deviceId", "")
 
+        logger.info(f"[MQTT] Provision request from device {device_id} with code {customer_code}")
+
         if not device_id:
+            logger.warning("[MQTT] Provision request missing deviceId")
             return
 
-        with SessionLocal() as session:
-            # Lookup customer code
-            code_record = session.execute(
-                select(CustomerCode).where(CustomerCode.code == customer_code)
-            ).scalars().first()
+        try:
+            with SessionLocal() as session:
+                # Lookup customer code
+                code_record = session.execute(
+                    select(CustomerCode).where(CustomerCode.code == customer_code)
+                ).scalars().first()
 
-            if not code_record:
-                # Unknown customer code - ignore silently
-                # (don't respond to avoid information disclosure)
-                return
+                if not code_record:
+                    # Unknown customer code - ignore silently
+                    # (don't respond to avoid information disclosure)
+                    logger.warning(f"[MQTT] Unknown customer code: {customer_code}")
+                    return
 
-            # Get customer info
-            customer = session.get(Customer, code_record.customer_id)
-            customer_name = customer.name if customer else "Ukendt"
+                # Get customer info
+                customer = session.get(Customer, code_record.customer_id)
+                customer_name = customer.name if customer else "Ukendt"
+                logger.info(f"[MQTT] Found customer: {customer_name}")
 
-            # Create or update device
-            device = session.get(Device, device_id)
-            was_new = device is None
+                # Create or update device
+                device = session.get(Device, device_id)
+                was_new = device is None
 
-            if not device:
-                device = Device(id=device_id)
+                if not device:
+                    device = Device(id=device_id)
 
-            device.name = payload.get("deviceName", f"IOCast {device_id[-8:]}")
-            device.status = "online"
-            device.ip = payload.get("ip", device.ip)
-            device.mac = payload.get("mac", device.mac)
-            device.url = code_record.start_url
-            device.last_seen = datetime.utcnow()
+                device.name = payload.get("deviceName", f"IOCast {device_id[-8:]}")
+                device.status = "online"
+                device.ip = payload.get("ip", device.ip)
+                device.mac = payload.get("mac", device.mac)
+                device.url = code_record.start_url
+                device.last_seen = datetime.utcnow()
 
-            # Set approved based on auto_approve setting
-            if code_record.auto_approve:
-                device.approved = True
-            # If not auto_approve, keep existing approval status (or False for new)
+                # Set approved based on auto_approve setting
+                if code_record.auto_approve:
+                    device.approved = True
+                # If not auto_approve, keep existing approval status (or False for new)
 
-            session.merge(device)
+                session.merge(device)
 
-            # Create/update assignment to link device to customer
-            existing_assignment = session.execute(
-                select(Assignment).where(Assignment.device_id == device_id)
-            ).scalars().first()
+                # Create/update assignment to link device to customer
+                existing_assignment = session.execute(
+                    select(Assignment).where(Assignment.device_id == device_id)
+                ).scalars().first()
 
-            if not existing_assignment:
-                assignment = Assignment(
-                    customer_id=code_record.customer_id,
-                    device_id=device_id
-                )
-                session.add(assignment)
-            elif existing_assignment.customer_id != code_record.customer_id:
-                # Update if customer changed
-                existing_assignment.customer_id = code_record.customer_id
+                if not existing_assignment:
+                    assignment = Assignment(
+                        customer_id=code_record.customer_id,
+                        device_id=device_id
+                    )
+                    session.add(assignment)
+                elif existing_assignment.customer_id != code_record.customer_id:
+                    # Update if customer changed
+                    existing_assignment.customer_id = code_record.customer_id
 
-            # Log the provisioning
-            log_msg = f"IOCast provisioning: {customer_name} (kode: {customer_code})"
-            if was_new:
-                _add_device_log(session, device_id, "success", "status",
-                    f"Ny enhed registreret via {log_msg}",
-                    {"ip": device.ip, "mac": device.mac, "model": payload.get("deviceName")})
-            else:
-                _add_device_log(session, device_id, "info", "status",
-                    f"Enhed gen-provisioneret via {log_msg}",
-                    {"ip": device.ip})
+                # Log the provisioning
+                log_msg = f"IOCast provisioning: {customer_name} (kode: {customer_code})"
+                if was_new:
+                    _add_device_log(session, device_id, "success", "status",
+                        f"Ny enhed registreret via {log_msg}",
+                        {"ip": device.ip, "mac": device.mac, "model": payload.get("deviceName")})
+                else:
+                    _add_device_log(session, device_id, "info", "status",
+                        f"Enhed gen-provisioneret via {log_msg}",
+                        {"ip": device.ip})
 
-            session.commit()
+                session.commit()
+                logger.info(f"[MQTT] Device {device_id} saved to database")
 
-            # Build response
-            response_topic = f"provision/{customer_code}/response/{device_id}"
+                # Build response
+                response_topic = f"provision/{customer_code}/response/{device_id}"
 
-            if code_record.auto_approve or device.approved:
-                # Send approved config
-                response = {
-                    "approved": True,
-                    "startUrl": code_record.start_url,
-                    "kioskMode": code_record.kiosk_mode,
-                    "keepScreenOn": code_record.keep_screen_on,
-                    "customerId": str(code_record.customer_id),
-                    "customerName": customer_name
-                }
-            else:
-                # Waiting for manual approval
-                response = {
-                    "approved": False,
-                    "message": "Venter på godkendelse...",
-                    "customerName": customer_name
-                }
+                if code_record.auto_approve or device.approved:
+                    # Send approved config
+                    response = {
+                        "approved": True,
+                        "startUrl": code_record.start_url,
+                        "kioskMode": code_record.kiosk_mode,
+                        "keepScreenOn": code_record.keep_screen_on,
+                        "customerId": str(code_record.customer_id),
+                        "customerName": customer_name
+                    }
+                else:
+                    # Waiting for manual approval
+                    response = {
+                        "approved": False,
+                        "message": "Venter på godkendelse...",
+                        "customerName": customer_name
+                    }
 
-            # Publish response (retained so device can reconnect and get it)
-            self._client.publish(response_topic, json.dumps(response), retain=True)
+                # Publish response (retained so device can reconnect and get it)
+                logger.info(f"[MQTT] Publishing provision response to: {response_topic}")
+                logger.info(f"[MQTT] Response: {response}")
+                self._client.publish(response_topic, json.dumps(response), retain=True)
+                logger.info(f"[MQTT] Provision response sent successfully")
+
+        except Exception as e:
+            logger.error(f"[MQTT] Provision request failed: {e}", exc_info=True)
 
     @staticmethod
     def _extract_device_id(topic: str) -> Optional[str]:
