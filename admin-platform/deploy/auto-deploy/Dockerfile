@@ -1,7 +1,7 @@
 FROM node:20-alpine
 
-# Install git, docker-cli, openssh-client, and curl for deployment operations
-RUN apk add --no-cache git docker-cli openssh-client curl
+# Install git, docker with compose plugin, openssh-client, and curl for deployment operations
+RUN apk add --no-cache git docker-cli docker-cli-compose openssh-client curl
 
 # Configure git to trust mounted repository
 RUN git config --global --add safe.directory /repo
