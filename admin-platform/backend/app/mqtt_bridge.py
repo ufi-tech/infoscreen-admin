@@ -224,9 +224,11 @@ class MQTTBridge:
                 device.status = "online"
                 device.last_seen = datetime.utcnow()
 
-                # Update IP if provided in telemetry (Android devices send this)
-                if payload.get("ip"):
-                    device.ip = payload.get("ip")
+                # Update IP if provided in telemetry
+                # IOCast Android uses "ipAddress", Raspberry Pi uses "ip"
+                ip = payload.get("ip") or payload.get("ipAddress")
+                if ip and ip not in ("unknown", "0.0.0.0"):
+                    device.ip = ip
 
                 # IOCast Android: Extract device name from manufacturer/model if not set
                 # This ensures devices show a meaningful name instead of just device_id
