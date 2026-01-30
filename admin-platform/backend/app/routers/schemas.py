@@ -62,6 +62,12 @@ class CustomerRequest(BaseModel):
     # CMS provisioning fields
     cms_subdomain: Optional[str] = None
     auto_provision: Optional[bool] = False  # If true, auto-provision CMS on create
+    # CMS configuration (for manual setup of existing CMS)
+    cms_status: Optional[str] = None  # none, pending, provisioning, active, stopped, error
+    cms_docker_port: Optional[int] = None
+    cms_deploy_port: Optional[int] = None
+    cms_api_key: Optional[str] = None
+    cms_admin_password: Optional[str] = None
 
 
 class AssignmentRequest(BaseModel):
