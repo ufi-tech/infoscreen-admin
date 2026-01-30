@@ -18,10 +18,10 @@
 #       reverse_proxy ufitech-docker-01:8080
 #     }
 #     handle /deploy-webhook* {
-#       reverse_proxy ufitech-docker-01:9006
+#       reverse_proxy ufitech-docker-01:9010
 #     }
 #     handle {
-#       reverse_proxy ufitech-docker-01:3000
+#       reverse_proxy ufitech-docker-01:3010
 #     }
 #   }
 
@@ -55,7 +55,7 @@ services:
     container_name: iocast-admin-frontend
     restart: unless-stopped
     ports:
-      - "3000:3000"
+      - "3010:3000"
     depends_on:
       - backend
 
@@ -66,7 +66,7 @@ services:
     env_file:
       - .env
     environment:
-      - PORT=9006
+      - PORT=9010
       - BRANCH=main
       - REPO_PATH=/repo
     volumes:
@@ -74,7 +74,7 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
       - /root/.ssh:/root/.ssh:ro
     ports:
-      - "9006:9006"
+      - "9010:9010"
 
 volumes:
   data:
