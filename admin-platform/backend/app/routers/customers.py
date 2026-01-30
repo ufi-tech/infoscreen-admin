@@ -34,6 +34,17 @@ def _customer_to_dict(r: Customer, device_count: int = 0) -> dict:
         "notes": r.notes,
         "created_at": r.created_at,
         "updated_at": r.updated_at,
+        # Extended business information
+        "cvr": r.cvr,
+        "address": r.address,
+        "zip_code": r.zip_code,
+        "city": r.city,
+        "country": r.country,
+        "website": r.website,
+        "invoice_email": r.invoice_email,
+        "contact_name_2": r.contact_name_2,
+        "contact_phone_2": r.contact_phone_2,
+        "contact_email_2": r.contact_email_2,
         # CMS fields
         "cms_subdomain": r.cms_subdomain,
         "cms_status": r.cms_status,
@@ -135,6 +146,18 @@ def create_customer(body: CustomerRequest, request: Request):
             email=body.email or "",
             phone=body.phone or "",
             notes=body.notes or "",
+            # Extended business information
+            cvr=body.cvr,
+            address=body.address,
+            zip_code=body.zip_code,
+            city=body.city,
+            country=body.country or "Danmark",
+            website=body.website,
+            invoice_email=body.invoice_email,
+            contact_name_2=body.contact_name_2,
+            contact_phone_2=body.contact_phone_2,
+            contact_email_2=body.contact_email_2,
+            # CMS
             cms_subdomain=body.cms_subdomain,
             cms_status="pending" if body.cms_subdomain else "none",
         )

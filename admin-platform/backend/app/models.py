@@ -64,6 +64,18 @@ class Customer(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
+    # Extended business information
+    cvr = Column(String, nullable=True)  # Danish CVR number
+    address = Column(String, nullable=True)  # Street address
+    zip_code = Column(String, nullable=True)
+    city = Column(String, nullable=True)
+    country = Column(String, default="Danmark")
+    website = Column(String, nullable=True)
+    invoice_email = Column(String, nullable=True)  # Separate email for invoices
+    contact_name_2 = Column(String, nullable=True)  # Secondary contact
+    contact_phone_2 = Column(String, nullable=True)
+    contact_email_2 = Column(String, nullable=True)
+
     # CMS Configuration (for auto-provisioned CMS instances)
     cms_subdomain = Column(String, nullable=True, unique=True)  # "broerup" → broerup.screen.iocast.dk
     cms_status = Column(String, default="none")  # none, pending, provisioning, active, stopped, error

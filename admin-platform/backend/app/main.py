@@ -40,7 +40,7 @@ def run_migrations(conn, logger) -> None:
     cursor.execute("PRAGMA table_info(customers)")
     existing_columns = {row[1] for row in cursor.fetchall()}
 
-    # New columns to add to customers table (for CMS provisioning)
+    # New columns to add to customers table (for CMS provisioning + business info)
     new_columns = [
         ("cms_subdomain", "TEXT"),
         ("cms_status", "TEXT DEFAULT 'none'"),
@@ -49,6 +49,17 @@ def run_migrations(conn, logger) -> None:
         ("cms_api_key", "TEXT"),
         ("cms_admin_password", "TEXT"),
         ("cms_provisioned_at", "DATETIME"),
+        # Extended business information
+        ("cvr", "TEXT"),
+        ("address", "TEXT"),
+        ("zip_code", "TEXT"),
+        ("city", "TEXT"),
+        ("country", "TEXT DEFAULT 'Danmark'"),
+        ("website", "TEXT"),
+        ("invoice_email", "TEXT"),
+        ("contact_name_2", "TEXT"),
+        ("contact_phone_2", "TEXT"),
+        ("contact_email_2", "TEXT"),
     ]
 
     for col_name, col_type in new_columns:

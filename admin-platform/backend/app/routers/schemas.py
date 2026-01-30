@@ -48,6 +48,17 @@ class CustomerRequest(BaseModel):
     email: Optional[str] = None
     phone: Optional[str] = None
     notes: Optional[str] = None
+    # Extended business information
+    cvr: Optional[str] = None
+    address: Optional[str] = None
+    zip_code: Optional[str] = None
+    city: Optional[str] = None
+    country: Optional[str] = None
+    website: Optional[str] = None
+    invoice_email: Optional[str] = None
+    contact_name_2: Optional[str] = None
+    contact_phone_2: Optional[str] = None
+    contact_email_2: Optional[str] = None
     # CMS provisioning fields
     cms_subdomain: Optional[str] = None
     auto_provision: Optional[bool] = False  # If true, auto-provision CMS on create

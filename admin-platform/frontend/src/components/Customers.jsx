@@ -615,10 +615,49 @@ function CustomerDetail({
         )}
       </div>
 
+      {/* Business Information */}
+      <div className="customer-business-info">
+        {customer.cvr && (
+          <div className="info-row">
+            <label>CVR:</label>
+            <span className="cvr-number">{customer.cvr}</span>
+            <a
+              href={`https://datacvr.virk.dk/enhed/virksomhed/${customer.cvr}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="cvr-link"
+              title="Se på CVR"
+            >
+              CVR
+            </a>
+          </div>
+        )}
+        {(customer.address || customer.zip_code || customer.city) && (
+          <div className="info-row address">
+            <label>Adresse:</label>
+            <span>
+              {customer.address && <>{customer.address}<br /></>}
+              {customer.zip_code} {customer.city}
+              {customer.country && customer.country !== 'Danmark' && `, ${customer.country}`}
+            </span>
+          </div>
+        )}
+        {customer.website && (
+          <div className="info-row">
+            <label>Website:</label>
+            <a href={customer.website.startsWith('http') ? customer.website : `https://${customer.website}`} target="_blank" rel="noopener noreferrer">
+              {customer.website}
+            </a>
+          </div>
+        )}
+      </div>
+
+      {/* Primary Contact */}
       <div className="customer-contact">
+        <h4>Primær Kontakt</h4>
         {customer.contact_name && (
           <div className="contact-item">
-            <label>Kontakt:</label>
+            <label>Navn:</label>
             <span>{customer.contact_name}</span>
           </div>
         )}
@@ -634,7 +673,38 @@ function CustomerDetail({
             <a href={`tel:${customer.phone}`}>{customer.phone}</a>
           </div>
         )}
+        {customer.invoice_email && customer.invoice_email !== customer.email && (
+          <div className="contact-item">
+            <label>Faktura:</label>
+            <a href={`mailto:${customer.invoice_email}`}>{customer.invoice_email}</a>
+          </div>
+        )}
       </div>
+
+      {/* Secondary Contact */}
+      {(customer.contact_name_2 || customer.contact_email_2 || customer.contact_phone_2) && (
+        <div className="customer-contact secondary">
+          <h4>Sekundær Kontakt</h4>
+          {customer.contact_name_2 && (
+            <div className="contact-item">
+              <label>Navn:</label>
+              <span>{customer.contact_name_2}</span>
+            </div>
+          )}
+          {customer.contact_email_2 && (
+            <div className="contact-item">
+              <label>Email:</label>
+              <a href={`mailto:${customer.contact_email_2}`}>{customer.contact_email_2}</a>
+            </div>
+          )}
+          {customer.contact_phone_2 && (
+            <div className="contact-item">
+              <label>Telefon:</label>
+              <a href={`tel:${customer.contact_phone_2}`}>{customer.contact_phone_2}</a>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* CMS Management Section */}
       <CMSManagementSection customer={customer} onRefresh={onCustomerRefresh} />
@@ -710,9 +780,19 @@ function CustomerDetail({
 function CreateCustomerForm({ onCreated, onCancel }) {
   const [formData, setFormData] = useState({
     name: '',
+    cvr: '',
+    address: '',
+    zip_code: '',
+    city: '',
+    country: 'Danmark',
+    website: '',
     contact_name: '',
     email: '',
     phone: '',
+    invoice_email: '',
+    contact_name_2: '',
+    contact_email_2: '',
+    contact_phone_2: '',
     notes: '',
     cms_subdomain: '',
     auto_provision: false,
@@ -744,71 +824,186 @@ function CreateCustomerForm({ onCreated, onCancel }) {
 
       {error && <div className="form-error">{error}</div>}
 
-      <div className="form-group">
-        <label>Kundenavn *</label>
-        <input
-          type="text"
-          value={formData.name}
-          onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-          placeholder="F.eks. Vejle Hallerne"
-          required
-        />
-      </div>
+      {/* Basic Info */}
+      <fieldset>
+        <legend>Virksomhedsoplysninger</legend>
 
-      <div className="form-row">
         <div className="form-group">
-          <label>Kontaktperson</label>
+          <label>Kundenavn *</label>
           <input
             type="text"
-            value={formData.contact_name}
-            onChange={(e) => setFormData({ ...formData, contact_name: e.target.value })}
-            placeholder="Navn"
+            value={formData.name}
+            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+            placeholder="F.eks. Brørup Hallerne"
+            required
           />
         </div>
+
+        <div className="form-row">
+          <div className="form-group">
+            <label>CVR-nummer</label>
+            <input
+              type="text"
+              value={formData.cvr}
+              onChange={(e) => setFormData({ ...formData, cvr: e.target.value.replace(/\D/g, '').slice(0, 8) })}
+              placeholder="12345678"
+              maxLength={8}
+            />
+          </div>
+          <div className="form-group">
+            <label>Website</label>
+            <input
+              type="text"
+              value={formData.website}
+              onChange={(e) => setFormData({ ...formData, website: e.target.value })}
+              placeholder="broeruphallerne.dk"
+            />
+          </div>
+        </div>
+
         <div className="form-group">
-          <label>Telefon</label>
-          <input
-            type="tel"
-            value={formData.phone}
-            onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-            placeholder="+45 12 34 56 78"
-          />
-        </div>
-      </div>
-
-      <div className="form-group">
-        <label>Email</label>
-        <input
-          type="email"
-          value={formData.email}
-          onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-          placeholder="kunde@example.dk"
-        />
-      </div>
-
-      <div className="form-group">
-        <label>CMS Subdomain</label>
-        <div className="input-with-suffix">
+          <label>Adresse</label>
           <input
             type="text"
-            value={formData.cms_subdomain}
-            onChange={(e) => setFormData({ ...formData, cms_subdomain: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '') })}
-            placeholder="vejle-hallerne"
+            value={formData.address}
+            onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+            placeholder="Byagervej 3"
           />
-          <span className="input-suffix">.screen.iocast.dk</span>
         </div>
-      </div>
 
-      <div className="form-group checkbox">
-        <label>
+        <div className="form-row">
+          <div className="form-group small">
+            <label>Postnr.</label>
+            <input
+              type="text"
+              value={formData.zip_code}
+              onChange={(e) => setFormData({ ...formData, zip_code: e.target.value })}
+              placeholder="6650"
+            />
+          </div>
+          <div className="form-group">
+            <label>By</label>
+            <input
+              type="text"
+              value={formData.city}
+              onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+              placeholder="Brørup"
+            />
+          </div>
+        </div>
+      </fieldset>
+
+      {/* Primary Contact */}
+      <fieldset>
+        <legend>Primær Kontakt</legend>
+
+        <div className="form-row">
+          <div className="form-group">
+            <label>Kontaktperson</label>
+            <input
+              type="text"
+              value={formData.contact_name}
+              onChange={(e) => setFormData({ ...formData, contact_name: e.target.value })}
+              placeholder="Navn"
+            />
+          </div>
+          <div className="form-group">
+            <label>Telefon</label>
+            <input
+              type="tel"
+              value={formData.phone}
+              onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+              placeholder="+45 12 34 56 78"
+            />
+          </div>
+        </div>
+
+        <div className="form-row">
+          <div className="form-group">
+            <label>Email</label>
+            <input
+              type="email"
+              value={formData.email}
+              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+              placeholder="info@example.dk"
+            />
+          </div>
+          <div className="form-group">
+            <label>Faktura Email</label>
+            <input
+              type="email"
+              value={formData.invoice_email}
+              onChange={(e) => setFormData({ ...formData, invoice_email: e.target.value })}
+              placeholder="faktura@example.dk"
+            />
+          </div>
+        </div>
+      </fieldset>
+
+      {/* Secondary Contact */}
+      <fieldset>
+        <legend>Sekundær Kontakt (valgfrit)</legend>
+
+        <div className="form-row">
+          <div className="form-group">
+            <label>Kontaktperson 2</label>
+            <input
+              type="text"
+              value={formData.contact_name_2}
+              onChange={(e) => setFormData({ ...formData, contact_name_2: e.target.value })}
+              placeholder="Navn"
+            />
+          </div>
+          <div className="form-group">
+            <label>Telefon 2</label>
+            <input
+              type="tel"
+              value={formData.contact_phone_2}
+              onChange={(e) => setFormData({ ...formData, contact_phone_2: e.target.value })}
+              placeholder="+45 12 34 56 78"
+            />
+          </div>
+        </div>
+
+        <div className="form-group">
+          <label>Email 2</label>
           <input
-            type="checkbox"
-            checked={formData.auto_provision}
-            onChange={(e) => setFormData({ ...formData, auto_provision: e.target.checked })}
+            type="email"
+            value={formData.contact_email_2}
+            onChange={(e) => setFormData({ ...formData, contact_email_2: e.target.value })}
+            placeholder="person2@example.dk"
           />
-          Auto-opret CMS (kræver subdomain)
-        </label>
-      </div>
+        </div>
+      </fieldset>
+
+      {/* CMS Settings */}
+      <fieldset>
+        <legend>CMS Indstillinger</legend>
+
+        <div className="form-group">
+          <label>CMS Subdomain</label>
+          <div className="input-with-suffix">
+            <input
+              type="text"
+              value={formData.cms_subdomain}
+              onChange={(e) => setFormData({ ...formData, cms_subdomain: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '') })}
+              placeholder="broerup-hallerne"
+            />
+            <span className="input-suffix">.screen.iocast.dk</span>
+          </div>
+        </div>
+
+        <div className="form-group checkbox">
+          <label>
+            <input
+              type="checkbox"
+              checked={formData.auto_provision}
+              onChange={(e) => setFormData({ ...formData, auto_provision: e.target.checked })}
+            />
+            Auto-opret CMS (kræver subdomain)
+          </label>
+        </div>
+      </fieldset>
 
       <div className="form-group">
         <label>Noter</label>
