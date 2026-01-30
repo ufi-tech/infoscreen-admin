@@ -52,6 +52,7 @@ services:
   frontend:
     build:
       context: ./frontend
+      dockerfile: Dockerfile.prod
       args:
         - VITE_API_URL=https://admin.screen.iocast.dk/api
     container_name: iocast-admin-frontend
