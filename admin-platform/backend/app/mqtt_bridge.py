@@ -217,13 +217,41 @@ class MQTTBridge:
 
                 # Update device status to online when receiving telemetry
                 device = session.get(Device, device_id)
-                if device:
-                    device.status = "online"
-                    device.last_seen = datetime.utcnow()
-                    # Update IP if provided in telemetry (Android devices send this)
-                    if payload.get("ip"):
-                        device.ip = payload.get("ip")
-                    session.merge(device)
+                if not device:
+                    # Create device if it doesn't exist (for IOCast Android devices)
+                    device = Device(id=device_id)
+
+                device.status = "online"
+                device.last_seen = datetime.utcnow()
+
+                # Update IP if provided in telemetry (Android devices send this)
+                if payload.get("ip"):
+                    device.ip = payload.get("ip")
+
+                # IOCast Android: Extract device name from manufacturer/model if not set
+                # This ensures devices show a meaningful name instead of just device_id
+                if device_id.startswith("iocast-"):
+                    manufacturer = payload.get("manufacturer", "")
+                    model = payload.get("model", "")
+
+                    # Set name if not already set (or if it's just the device_id)
+                    if not device.name or device.name == device_id or device.name.startswith("IOCast iocast-"):
+                        if manufacturer and model:
+                            # e.g., "LENOVO Lenovo TB-X606F" -> "Lenovo TB-X606F"
+                            if model.lower().startswith(manufacturer.lower()):
+                                device.name = model
+                            else:
+                                device.name = f"{manufacturer} {model}"
+                        elif model:
+                            device.name = model
+                        elif manufacturer:
+                            device.name = manufacturer
+
+                    # Update URL from telemetry if available
+                    if payload.get("currentUrl"):
+                        device.url = payload.get("currentUrl")
+
+                session.merge(device)
 
                 # Log significant telemetry events (not every update)
                 temp = payload.get("temp_c") or payload.get("temp")
