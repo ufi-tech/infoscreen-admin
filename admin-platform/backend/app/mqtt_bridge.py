@@ -615,10 +615,21 @@ class MQTTBridge:
                 response_topic = f"provision/{customer_code}/response/{device_id}"
 
                 if code_record.auto_approve or device.approved:
-                    # Send approved config
+                    # Build broker URL for the device to connect
+                    # Use external broker IP (188.228.60.134) for devices outside Docker network
+                    broker_host = MQTT_BROKER_HOST
+                    if broker_host == "host.docker.internal" or broker_host == "127.0.0.1":
+                        # When running in Docker, use external IP for devices
+                        broker_host = "188.228.60.134"
+                    broker_url = f"tcp://{broker_host}:{MQTT_BROKER_PORT}"
+
+                    # Send approved config with MQTT credentials
                     response = {
                         "approved": True,
                         "startUrl": code_record.start_url,
+                        "brokerUrl": broker_url,
+                        "username": MQTT_USERNAME,
+                        "password": MQTT_PASSWORD,
                         "kioskMode": code_record.kiosk_mode,
                         "keepScreenOn": code_record.keep_screen_on,
                         "customerId": str(code_record.customer_id),
