@@ -311,6 +311,45 @@ export default function AndroidDevices() {
                     </button>
                   </div>
 
+                  <h4 style={{marginTop: '1.5rem', marginBottom: '0.75rem', color: 'var(--text-muted)'}}>TV Kontrol (HDMI-CEC)</h4>
+                  <div className="command-buttons">
+                    <button
+                      className="btn btn-primary"
+                      onClick={() => sendCommand('tvOn')}
+                      disabled={commandLoading}
+                    >
+                      {commandLoading === 'tvOn' ? '...' : '📺 Tænd TV'}
+                    </button>
+                    <button
+                      className="btn btn-secondary"
+                      onClick={() => sendCommand('tvOff')}
+                      disabled={commandLoading}
+                    >
+                      {commandLoading === 'tvOff' ? '...' : '📴 Sluk TV'}
+                    </button>
+                    <button
+                      className="btn btn-secondary"
+                      onClick={() => sendCommand('tvVolumeUp')}
+                      disabled={commandLoading}
+                    >
+                      {commandLoading === 'tvVolumeUp' ? '...' : '🔊 Vol +'}
+                    </button>
+                    <button
+                      className="btn btn-secondary"
+                      onClick={() => sendCommand('tvVolumeDown')}
+                      disabled={commandLoading}
+                    >
+                      {commandLoading === 'tvVolumeDown' ? '...' : '🔉 Vol -'}
+                    </button>
+                    <button
+                      className="btn btn-secondary"
+                      onClick={() => sendCommand('tvMute')}
+                      disabled={commandLoading}
+                    >
+                      {commandLoading === 'tvMute' ? '...' : '🔇 Mute'}
+                    </button>
+                  </div>
+
                   <div className="url-input-group">
                     <input
                       type="url"
@@ -324,6 +363,239 @@ export default function AndroidDevices() {
                       disabled={!urlDraft || commandLoading}
                     >
                       Skift URL
+                    </button>
+                  </div>
+                </CollapsibleSection>
+
+                <CollapsibleSection title="Netværk & System" defaultOpen={false}>
+                  <h4 style={{marginBottom: '0.75rem', color: 'var(--text-muted)'}}>Netværk</h4>
+                  <div className="command-buttons">
+                    <button
+                      className="btn btn-secondary"
+                      onClick={() => sendCommand('ping', { host: '8.8.8.8' })}
+                      disabled={commandLoading}
+                    >
+                      {commandLoading === 'ping' ? '...' : '🌐 Ping Google'}
+                    </button>
+                    <button
+                      className="btn btn-secondary"
+                      onClick={() => sendCommand('getWifiNetworks')}
+                      disabled={commandLoading}
+                    >
+                      {commandLoading === 'getWifiNetworks' ? '...' : '📶 Scan WiFi'}
+                    </button>
+                    <button
+                      className="btn btn-secondary"
+                      onClick={() => sendCommand('getNetworkInfo')}
+                      disabled={commandLoading}
+                    >
+                      {commandLoading === 'getNetworkInfo' ? '...' : '🔗 Netværksinfo'}
+                    </button>
+                  </div>
+
+                  <h4 style={{marginTop: '1.5rem', marginBottom: '0.75rem', color: 'var(--text-muted)'}}>System</h4>
+                  <div className="command-buttons">
+                    <button
+                      className="btn btn-secondary"
+                      onClick={() => sendCommand('getInfo')}
+                      disabled={commandLoading}
+                    >
+                      {commandLoading === 'getInfo' ? '...' : '📊 Enhedsinfo'}
+                    </button>
+                    <button
+                      className="btn btn-secondary"
+                      onClick={() => sendCommand('getStorage')}
+                      disabled={commandLoading}
+                    >
+                      {commandLoading === 'getStorage' ? '...' : '💾 Lagerinfo'}
+                    </button>
+                    <button
+                      className="btn btn-secondary"
+                      onClick={() => sendCommand('getLogs', { lines: 50 })}
+                      disabled={commandLoading}
+                    >
+                      {commandLoading === 'getLogs' ? '...' : '📜 Hent logs'}
+                    </button>
+                    <button
+                      className="btn btn-secondary"
+                      onClick={() => sendCommand('clearCache')}
+                      disabled={commandLoading}
+                    >
+                      {commandLoading === 'clearCache' ? '...' : '🧹 Ryd cache'}
+                    </button>
+                  </div>
+                </CollapsibleSection>
+
+                <CollapsibleSection title="Lydstyrke" defaultOpen={false}>
+                  <div className="command-buttons">
+                    <button
+                      className="btn btn-secondary"
+                      onClick={() => sendCommand('getVolume')}
+                      disabled={commandLoading}
+                    >
+                      {commandLoading === 'getVolume' ? '...' : '🔊 Hent lydstyrke'}
+                    </button>
+                    <button
+                      className="btn btn-secondary"
+                      onClick={() => sendCommand('setVolume', { level: 50 })}
+                      disabled={commandLoading}
+                    >
+                      {commandLoading === 'setVolume' ? '...' : '🔉 50%'}
+                    </button>
+                    <button
+                      className="btn btn-secondary"
+                      onClick={() => sendCommand('setVolume', { level: 100 })}
+                      disabled={commandLoading}
+                    >
+                      {commandLoading === 'setVolume' ? '...' : '🔊 100%'}
+                    </button>
+                    <button
+                      className="btn btn-secondary"
+                      onClick={() => sendCommand('setMute', { mute: true })}
+                      disabled={commandLoading}
+                    >
+                      {commandLoading === 'setMute' ? '...' : '🔇 Mute'}
+                    </button>
+                    <button
+                      className="btn btn-secondary"
+                      onClick={() => sendCommand('setMute', { mute: false })}
+                      disabled={commandLoading}
+                    >
+                      {commandLoading === 'setMute' ? '...' : '🔈 Unmute'}
+                    </button>
+                  </div>
+                </CollapsibleSection>
+
+                <CollapsibleSection title="Tidsplaner" defaultOpen={false}>
+                  <h4 style={{marginBottom: '0.75rem', color: 'var(--text-muted)'}}>Skærm tidsplan</h4>
+                  <p className="muted" style={{marginBottom: '0.5rem'}}>Tænd/sluk TV automatisk</p>
+                  <div className="command-buttons">
+                    <button
+                      className="btn btn-primary"
+                      onClick={() => sendCommand('setDisplaySchedule', { enabled: true, onHour: 7, onMinute: 0, offHour: 22, offMinute: 0 })}
+                      disabled={commandLoading}
+                    >
+                      {commandLoading === 'setDisplaySchedule' ? '...' : '⏰ 07:00-22:00'}
+                    </button>
+                    <button
+                      className="btn btn-secondary"
+                      onClick={() => sendCommand('setDisplaySchedule', { enabled: true, onHour: 6, onMinute: 0, offHour: 23, offMinute: 0 })}
+                      disabled={commandLoading}
+                    >
+                      06:00-23:00
+                    </button>
+                    <button
+                      className="btn btn-secondary"
+                      onClick={() => sendCommand('setDisplaySchedule', { enabled: false })}
+                      disabled={commandLoading}
+                    >
+                      Deaktiver
+                    </button>
+                    <button
+                      className="btn btn-secondary"
+                      onClick={() => sendCommand('getDisplaySchedule')}
+                      disabled={commandLoading}
+                    >
+                      {commandLoading === 'getDisplaySchedule' ? '...' : 'Vis tidsplan'}
+                    </button>
+                  </div>
+
+                  <h4 style={{marginTop: '1.5rem', marginBottom: '0.75rem', color: 'var(--text-muted)'}}>Planlagt genstart</h4>
+                  <p className="muted" style={{marginBottom: '0.5rem'}}>Genstart enheden automatisk</p>
+                  <div className="command-buttons">
+                    <button
+                      className="btn btn-secondary"
+                      onClick={() => sendCommand('scheduleReboot', { hour: 3, minute: 0, daily: true })}
+                      disabled={commandLoading}
+                    >
+                      {commandLoading === 'scheduleReboot' ? '...' : '🔄 Daglig kl. 03:00'}
+                    </button>
+                    <button
+                      className="btn btn-secondary"
+                      onClick={() => sendCommand('cancelScheduledReboot')}
+                      disabled={commandLoading}
+                    >
+                      Annuller
+                    </button>
+                  </div>
+                </CollapsibleSection>
+
+                <CollapsibleSection title="Kiosk & App" defaultOpen={false}>
+                  <div className="command-buttons">
+                    <button
+                      className="btn btn-secondary"
+                      onClick={() => sendCommand('getKioskMode')}
+                      disabled={commandLoading}
+                    >
+                      {commandLoading === 'getKioskMode' ? '...' : '🔒 Kiosk status'}
+                    </button>
+                    <button
+                      className="btn btn-secondary"
+                      onClick={() => sendCommand('setKioskMode', { enabled: true })}
+                      disabled={commandLoading}
+                    >
+                      Aktivér kiosk
+                    </button>
+                    <button
+                      className="btn btn-secondary"
+                      onClick={() => sendCommand('setKioskMode', { enabled: false })}
+                      disabled={commandLoading}
+                    >
+                      Deaktivér kiosk
+                    </button>
+                    <button
+                      className="btn btn-secondary"
+                      onClick={() => sendCommand('restartApp')}
+                      disabled={commandLoading}
+                    >
+                      {commandLoading === 'restartApp' ? '...' : '🔄 Genstart app'}
+                    </button>
+                    <button
+                      className="btn btn-secondary"
+                      onClick={() => sendCommand('getApps')}
+                      disabled={commandLoading}
+                    >
+                      {commandLoading === 'getApps' ? '...' : '📱 List apps'}
+                    </button>
+                  </div>
+                </CollapsibleSection>
+
+                <CollapsibleSection title="Skærmretning" defaultOpen={false}>
+                  <div className="command-buttons">
+                    <button
+                      className="btn btn-secondary"
+                      onClick={() => sendCommand('setOrientation', { orientation: 'landscape' })}
+                      disabled={commandLoading}
+                    >
+                      {commandLoading === 'setOrientation' ? '...' : '🖥️ Landscape'}
+                    </button>
+                    <button
+                      className="btn btn-secondary"
+                      onClick={() => sendCommand('setOrientation', { orientation: 'portrait' })}
+                      disabled={commandLoading}
+                    >
+                      📱 Portrait
+                    </button>
+                    <button
+                      className="btn btn-secondary"
+                      onClick={() => sendCommand('setOrientation', { orientation: 'reverse_landscape' })}
+                      disabled={commandLoading}
+                    >
+                      🔄 Omvendt landscape
+                    </button>
+                    <button
+                      className="btn btn-secondary"
+                      onClick={() => sendCommand('setOrientation', { orientation: 'auto' })}
+                      disabled={commandLoading}
+                    >
+                      🔄 Auto
+                    </button>
+                    <button
+                      className="btn btn-secondary"
+                      onClick={() => sendCommand('getOrientation')}
+                      disabled={commandLoading}
+                    >
+                      {commandLoading === 'getOrientation' ? '...' : 'Vis retning'}
                     </button>
                   </div>
                 </CollapsibleSection>

@@ -14,6 +14,7 @@ from .logs import add_log
 
 # Danish command names for logging
 COMMAND_NAMES = {
+    # Raspberry Pi commands
     "reboot": "Genstart",
     "restart-nodered": "Genstart Node-RED",
     "restart-chromium": "Genstart Chromium",
@@ -33,6 +34,62 @@ COMMAND_NAMES = {
     "startScreensaver": "Start pauseskærm",
     "stopScreensaver": "Stop pauseskærm",
     "restartApp": "Genstart app",
+    # HDMI-CEC commands (IOCast Android TV control)
+    "tvOn": "Tænd TV (CEC)",
+    "tvOff": "Sluk TV (CEC)",
+    "tvVolumeUp": "Lydstyrke op (CEC)",
+    "tvVolumeDown": "Lydstyrke ned (CEC)",
+    "tvMute": "Mute TV (CEC)",
+    "cecStatus": "CEC status",
+    # IOCast Android - Navigation
+    "reload": "Genindlæs side",
+    "goBack": "Gå tilbage",
+    "goForward": "Gå frem",
+    "clearCache": "Ryd cache",
+    "setStartUrl": "Sæt start-URL",
+    # IOCast Android - Network
+    "ping": "Ping host",
+    "getWifiNetworks": "Scan WiFi netværk",
+    "getNetworkInfo": "Hent netværksinfo",
+    # IOCast Android - System
+    "setOrientation": "Sæt skærmretning",
+    "getOrientation": "Hent skærmretning",
+    "setTimezone": "Sæt tidszone",
+    "getTimezone": "Hent tidszone",
+    "setLocale": "Sæt sprog",
+    "getLocale": "Hent sprog",
+    "shutdown": "Sluk enhed",
+    "sleep": "Dvale",
+    "wakeUp": "Væk skærm",
+    # IOCast Android - App management
+    "getApps": "List apps",
+    "launchApp": "Start app",
+    # IOCast Android - Kiosk mode
+    "setKioskMode": "Sæt kiosk-tilstand",
+    "getKioskMode": "Hent kiosk-tilstand",
+    # IOCast Android - Scheduling
+    "scheduleReboot": "Planlæg genstart",
+    "cancelScheduledReboot": "Annuller planlagt genstart",
+    "setDisplaySchedule": "Sæt skærm-tidsplan",
+    "getDisplaySchedule": "Hent skærm-tidsplan",
+    # IOCast Android - Debug
+    "getLogs": "Hent logs",
+    "runShell": "Kør shell-kommando",
+    "getStorage": "Hent lagerinfo",
+    "clearAppData": "Ryd app-data",
+    "getInfo": "Hent enhedsinfo",
+    # IOCast Android - Volume
+    "setVolume": "Sæt lydstyrke",
+    "getVolume": "Hent lydstyrke",
+    "setMute": "Sæt mute",
+    "getMute": "Hent mute-status",
+    "speak": "Tal (TTS)",
+    "stopSpeak": "Stop tale",
+    # IOCast Android - Display
+    "getBrightness": "Hent lysstyrke",
+    "setScreenTimeout": "Sæt skærm-timeout",
+    # IOCast Android - OTA
+    "update": "OTA opdatering",
 }
 
 router = APIRouter(prefix="/devices", tags=["devices"])
